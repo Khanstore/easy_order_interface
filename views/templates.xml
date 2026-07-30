@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Screen 1: category tiles, rendered from product.public.category -->
+    <template id="page_categories" name="Easy Order - Categories">
+        <t t-call="website.layout">
+            <!-- This bundle only exists here and in page_products below —
+                 no other page on the site loads this CSS/JS. -->
+            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-js="true" t-css="true"/>
+            <div class="eo_page">
+
+                <div class="eo_topbar">
+                    <div class="eo_brand">
+                        <span class="eo_brand_name">Khan Store</span>
+                        <span class="eo_brand_tag">Easy Order</span>
+                    </div>
+                    <a href="/shop/cart" class="eo_cart_link">
+                        🛒 Cart
+                        <span class="eo_cart_count" t-esc="cart_qty"/>
+                    </a>
+                </div>
+
+                <h1 class="eo_title">What are you shopping for today?</h1>
+                <p class="eo_subtitle">Tap a picture to see what's inside.</p>
+
+                <div class="eo_tiles">
+                    <t t-foreach="categories" t-as="cat">
+                        <a t-attf-href="/easy-order/shop/#{cat.id}" class="eo_tile">
+                            <img
+                                t-attf-src="/web/image/product.public.category/#{cat.id}/image_128"
+                                t-att-alt="cat.name"
+                                loading="lazy"
+                            />
+                            <span t-esc="cat.name"/>
+                        </a>
+                    </t>
+                </div>
+
+                <div t-if="not categories" class="eo_empty_state">
+                    <p>No categories are published yet. Add some in
+                        Website &gt; eCommerce &gt; Categories.</p>
+                </div>
+
+            </div>
+        </t>
+    </template>
+
+    <!-- Screen 2: product grid for one category, rendered from product.template -->
+    <template id="page_products" name="Easy Order - Products">
+        <t t-call="website.layout">
+            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-js="true" t-css="true"/>
+            <div class="eo_page">
+
+                <div class="eo_topbar">
+                    <div class="eo_brand">
+                        <span class="eo_brand_name">Khan Store</span>
+                        <span class="eo_brand_tag">Easy Order</span>
+                    </div>
+                    <a href="/shop/cart" class="eo_cart_link">
+                        🛒 Cart
+                        <span class="eo_cart_count" t-esc="cart_qty"/>
+                    </a>
+                </div>
+
+                <a href="/easy-order" class="eo_back">← Back to categories</a>
+                <h1 class="eo_title" t-esc="category.name"/>
+                <p class="eo_subtitle">Tap "Add to Cart" for anything you'd like.</p>
+
+                <div class="eo_product_grid">
+                    <t t-foreach="products" t-as="product">
+                        <div class="eo_product_card">
+                            <img
+                                t-attf-src="/web/image/product.template/#{product.id}/image_128"
+                                t-att-alt="product.name"
+                                loading="lazy"
+                            />
+                            <div class="eo_product_info">
+                                <p class="eo_product_name" t-esc="product.name"/>
+                                <p class="eo_product_price"
+                                   t-esc="product.list_price"
+                                   t-options="{'widget': 'monetary', 'display_currency': product.currency_id}"/>
+                            </div>
+                            <button
+                                type="button"
+                                class="eo_add_btn"
+                                t-att-data-product-id="product.id"
+                            >Add to Cart</button>
+                        </div>
+                    </t>
+                </div>
+
+                <div t-if="not products" class="eo_empty_state">
+                    <p>No products published in this category yet.</p>
+                </div>
+
+            </div>
+        </t>
+    </template>
+
+</odoo>

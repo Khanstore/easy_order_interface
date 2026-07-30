@@ -1,0 +1,211 @@
+// Easy Order Interface — page-specific layout only.
+//
+// Colour/spacing tokens ($eo-forest, $eo-gold, $eo-tan-line, etc.) and
+// the Atkinson Hyperlegible / Fraunces @font-face rules are NOT
+// redeclared here — they come from khan_easy_order, which this module
+// depends on. Odoo loads a dependency's frontend assets before the
+// dependent module's own assets in the same 'web.assets_frontend'
+// bundle, so those Sass variables are already in scope by the time
+// this file compiles. If you ever install this module standalone
+// without khan_easy_order, these variables will not exist and the
+// build will fail — that's intentional, since this module is not
+// meant to duplicate that design system.
+
+.eo_page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 28px 20px 60px 20px;
+}
+
+.eo_topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.eo_brand_name {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: $eo-forest-dark;
+}
+
+.eo_brand_tag {
+    font-size: 14px;
+    color: $eo-ink-soft;
+    margin-left: 8px;
+}
+
+.eo_cart_link {
+    background-color: $eo-gold;
+    color: $eo-forest-dark;
+    padding: 10px 20px;
+    border-radius: 999px;
+    font-weight: 700;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    &:hover {
+        background-color: darken($eo-gold, 8%);
+        color: $eo-forest-dark;
+    }
+}
+
+.eo_cart_count:empty::before {
+    content: "0";
+}
+
+.eo_title {
+    font-family: 'Fraunces', serif;
+    font-size: 30px;
+    font-weight: 600;
+    color: $eo-ink;
+    margin-bottom: 6px;
+}
+
+.eo_subtitle {
+    color: $eo-ink-soft;
+    font-size: 18px;
+    margin-bottom: 26px;
+}
+
+.eo_back {
+    display: inline-block;
+    margin-bottom: 14px;
+    color: $eo-forest-dark;
+    font-weight: 700;
+    text-decoration: none;
+
+    &:hover { text-decoration: underline; }
+}
+
+// ---------------------------------------------------------------------
+// Category tiles
+// ---------------------------------------------------------------------
+.eo_tiles {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+}
+
+@media (min-width: 640px) {
+    .eo_tiles { grid-template-columns: repeat(3, 1fr); }
+}
+
+.eo_tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    background-color: #fff;
+    border: 2px solid $eo-tan-line;
+    border-radius: 16px;
+    padding: 22px 14px;
+    text-align: center;
+    text-decoration: none;
+    color: $eo-ink;
+    font-size: 19px;
+    font-weight: 700;
+    transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+
+    &:hover {
+        border-color: $eo-forest;
+        box-shadow: 0 4px 0 $eo-tan-line;
+        transform: translateY(-2px);
+        color: $eo-ink;
+    }
+
+    img {
+        width: 64px;
+        height: 64px;
+        object-fit: contain;
+    }
+}
+
+// ---------------------------------------------------------------------
+// Product grid
+// ---------------------------------------------------------------------
+.eo_product_grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.eo_product_card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background-color: #fff;
+    border: 2px solid $eo-tan-line;
+    border-radius: 16px;
+    padding: 16px;
+
+    img {
+        width: 72px;
+        height: 72px;
+        object-fit: contain;
+        border-radius: 12px;
+        background-color: $eo-paper-shade;
+        flex-shrink: 0;
+    }
+}
+
+.eo_product_info {
+    flex: 1;
+    min-width: 0;
+}
+
+.eo_product_name {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+}
+
+.eo_product_price {
+    font-size: 19px;
+    font-weight: 700;
+    color: $eo-forest-dark;
+    margin: 0;
+}
+
+.eo_add_btn {
+    background-color: $eo-forest;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 14px 20px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 3px 0 $eo-forest-dark;
+
+    &:hover { background-color: $eo-forest-dark; }
+    &:active {
+        box-shadow: 0 1px 0 $eo-forest-dark;
+        transform: translateY(2px);
+    }
+    &:disabled {
+        opacity: .75;
+        cursor: wait;
+        box-shadow: none;
+    }
+
+    &.eo_added {
+        background-color: $eo-gold;
+        color: $eo-forest-dark;
+        box-shadow: 0 3px 0 darken($eo-gold, 15%);
+    }
+}
+
+.eo_empty_state {
+    text-align: center;
+    padding: 60px 20px;
+    color: $eo-ink-soft;
+    font-size: 18px;
+}
