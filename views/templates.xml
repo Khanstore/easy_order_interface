@@ -1,96 +1,348 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Screen 1: category tiles, rendered from product.public.category -->
+    <!-- Shared topbar: brand, font-size toggle, optional call/WhatsApp
+         button, and the cart link. Used by every screen below so they
+         can't drift out of sync with each other. -->
+    <template id="topbar" name="Easy Order - Topbar">
+        <div class="eo_topbar">
+            <div class="eo_brand">
+                <span class="eo_brand_name">Khan Store</span>
+                <span class="eo_brand_tag">সহজ অর্ডার</span>
+            </div>
+            <div class="eo_topbar_actions">
+                <div class="eo_font_toggle" role="group" aria-label="লেখার আকার">
+                    <button type="button" class="eo_font_toggle_btn" data-eo-font-scale="1" aria-label="স্বাভাবিক আকার">A</button>
+                    <button type="button" class="eo_font_toggle_btn" data-eo-font-scale="1.2" aria-label="বড় আকার">A+</button>
+                    <button type="button" class="eo_font_toggle_btn" data-eo-font-scale="1.4" aria-label="সবচেয়ে বড় আকার">A++</button>
+                </div>
+                <a t-if="support_phone" t-attf-href="tel:+#{support_phone}" class="eo_call_link" aria-label="কল করে অর্ডার করুন">
+                    📞 <span class="eo_call_link_text">কল করে অর্ডার করুন</span>
+                </a>
+                <a t-if="support_phone" t-attf-href="https://wa.me/#{support_phone}" class="eo_whatsapp_link" target="_blank" rel="noopener" aria-label="হোয়াটসঅ্যাপে অর্ডার করুন">
+                    💬 <span class="eo_whatsapp_link_text">হোয়াটসঅ্যাপ</span>
+                </a>
+                <a href="/shop/cart" class="eo_cart_link">
+                    🛒 কার্ট
+                    <span class="eo_cart_count" t-esc="cart_qty"/>
+                </a>
+            </div>
+        </div>
+    </template>
+
+    <!-- Shared live-search box, called from the category screens below.
+         Scoped to whichever top-level section is currently being
+         browsed (see the data-eo-top-code attribute, read by the JS
+         widget and sent along with the search request) — searching from
+         inside /easy-order/police/... only searches পুলিশ's own products,
+         not the whole catalog, so each section keeps feeling like its
+         own self-contained storefront. Not rendered on the home page
+         (/easy-order), since there's no section to scope it to yet. -->
+    <template id="search_bar" name="Easy Order - Search Bar">
+        <div class="eo_search_wrap" t-att-data-eo-top-code="top_code">
+            <input
+                type="search"
+                class="eo_search_input"
+                placeholder="খুঁজুন... (বাংলা বা ইংরেজি)"
+                aria-label="পণ্য খুঁজুন"
+            />
+            <div class="eo_search_results"/>
+        </div>
+    </template>
+
+    <!-- Screen 1 / Screen 2: category tiles. Used BOTH as the home page
+         (/easy-order — `categories` is every top-level easy.order.category,
+         `top_code` is unset) AND, via page_products below reusing this
+         same tile markup for its own subcategories block. This template
+         id specifically renders the flat top-level directory. -->
     <template id="page_categories" name="Easy Order - Categories">
         <t t-call="website.layout">
-            <!-- This bundle only exists here and in page_products below —
-                 no other page on the site loads this CSS/JS. -->
-            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-js="true" t-css="true"/>
+            <!-- This bundle only exists on this module's own pages —
+                 no other page on the site loads this CSS/JS.
+                 JS must load with defer_load="True": website.layout's own
+                 core script (which defines the odoo.define/module-loader
+                 runtime our @odoo-module file compiles down to) is loaded
+                 deferred too. Without matching that, our script — sitting
+                 inline in the body with no defer — ran first and hit
+                 "odoo.define is not a function" before that runtime existed. -->
+            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-css="true" t-js="false"/>
+            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-js="true" t-css="false" defer_load="True"/>
             <div class="eo_page">
 
-                <div class="eo_topbar">
-                    <div class="eo_brand">
-                        <span class="eo_brand_name">Khan Store</span>
-                        <span class="eo_brand_tag">Easy Order</span>
-                    </div>
-                    <a href="/shop/cart" class="eo_cart_link">
-                        🛒 Cart
-                        <span class="eo_cart_count" t-esc="cart_qty"/>
-                    </a>
+                <t t-call="easy_order_interface.topbar"/>
+
+                <h1 class="eo_title">আজ আপনি কী কিনতে চান?</h1>
+                <p class="eo_subtitle">ভিতরে কী আছে দেখতে ছবিতে চাপুন।</p>
+
+                <!-- Filled in by JS from locally-remembered browsing history
+                     (see easy_order_interface.js) — hidden until there's
+                     actually something to show, and never rendered
+                     server-side since this page is cached/shared and this
+                     is specific to whoever's browser is looking at it. -->
+                <div id="eo_recent_categories" class="eo_recent_row" style="display: none;">
+                    <h2 class="eo_section_title eo_recent_row_title">সম্প্রতি দেখেছেন</h2>
+                    <div class="eo_recent_row_items"/>
                 </div>
 
-                <h1 class="eo_title">What are you shopping for today?</h1>
-                <p class="eo_subtitle">Tap a picture to see what's inside.</p>
-
-                <div class="eo_tiles">
+                <div class="eo_tiles" t-att-data-eo-truncate="11 if len(categories) > 11 else None">
                     <t t-foreach="categories" t-as="cat">
-                        <a t-attf-href="/easy-order/shop/#{cat.id}" class="eo_tile">
-                            <img
-                                t-attf-src="/web/image/product.public.category/#{cat.id}/image_128"
-                                t-att-alt="cat.name"
-                                loading="lazy"
-                            />
-                            <span t-esc="cat.name"/>
+                        <a t-attf-href="/easy-order/#{cat.code}"
+                           t-attf-class="eo_tile#{'' if cat.image else ' eo_tile_no_image'}">
+                            <span class="eo_tile_media" t-if="cat.image">
+                                <img
+                                    t-attf-src="/web/image/easy.order.category/#{cat.id}/image/256x256"
+                                    t-att-alt="cat.public_name or cat.name"
+                                    loading="lazy"
+                                />
+                            </span>
+                            <span class="eo_tile_label" t-esc="cat.public_name or cat.name"/>
                         </a>
                     </t>
                 </div>
 
                 <div t-if="not categories" class="eo_empty_state">
-                    <p>No categories are published yet. Add some in
-                        Website &gt; eCommerce &gt; Categories.</p>
+                    <p>এখনো কোনো বিভাগ তৈরি করা হয়নি। ব্যাকএন্ডে Sales &gt;
+                        Easy Order &gt; Categories থেকে একটি বিভাগ তৈরি
+                        করুন — Parent Category ফাঁকা রেখে এবং একটি Code
+                        দিয়ে দিলে সেটি এখানে দেখা যাবে।</p>
+                </div>
+
+                <div class="eo_tell_us_row">
+                    <a href="/easy-order/request" class="eo_tell_us_link">
+                        খুঁজে পাচ্ছেন না? আমাদের জানান কী চাই →
+                    </a>
                 </div>
 
             </div>
         </t>
     </template>
 
-    <!-- Screen 2: product grid for one category, rendered from product.template -->
+    <!-- Screen 3: subcategories + products for one category, reached at
+         /easy-order/<top code> (the top-level category itself) or
+         /easy-order/<top code>/shop/<subcategory> (anything nested under
+         it). Both routes render this same template — see
+         _render_category_page in controllers/main.py, which precomputes
+         category_url / ancestor_links / back_url so this template never
+         needs to work out for itself whether a given category is the
+         top-level one (pretty URL) or nested (id-based URL). -->
     <template id="page_products" name="Easy Order - Products">
         <t t-call="website.layout">
-            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-js="true" t-css="true"/>
-            <div class="eo_page">
+            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-css="true" t-js="false"/>
+            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-js="true" t-css="false" defer_load="True"/>
+            <div class="eo_page"
+                 t-att-data-category-id="category.id"
+                 t-att-data-category-name="category.public_name or category.name"
+                 t-att-data-category-url="category_url"
+                 t-att-data-eo-top-code="top_code">
 
-                <div class="eo_topbar">
-                    <div class="eo_brand">
-                        <span class="eo_brand_name">Khan Store</span>
-                        <span class="eo_brand_tag">Easy Order</span>
+                <t t-call="easy_order_interface.topbar"/>
+
+                <nav class="eo_breadcrumb" aria-label="ব্রেডক্রাম্ব">
+                    <a href="/easy-order">হোম</a>
+                    <t t-foreach="ancestor_links" t-as="anc_link">
+                        <span class="eo_breadcrumb_sep">/</span>
+                        <a t-att-href="anc_link['url']" t-esc="anc_link['category'].public_name or anc_link['category'].name"/>
+                    </t>
+                    <span class="eo_breadcrumb_sep">/</span>
+                    <span class="eo_breadcrumb_current" t-esc="category.public_name or category.name"/>
+                </nav>
+                <a t-att-href="back_url" class="eo_back">← বিভাগে ফিরে যান</a>
+                <h1 class="eo_title" t-esc="category.public_name or category.name"/>
+                <p class="eo_subtitle">যা চান তাতে "কার্টে যোগ করুন" চাপুন।</p>
+
+                <t t-call="easy_order_interface.search_bar"/>
+
+                <div t-if="subcategories" class="eo_subcategories">
+                    <h2 class="eo_section_title">নির্দিষ্ট ধরন দেখুন</h2>
+                    <div class="eo_tiles" t-att-data-eo-truncate="11 if len(subcategories) > 11 else None">
+                        <t t-foreach="subcategories" t-as="subcat">
+                            <a t-attf-href="/easy-order/#{top_code}/shop/#{subcat.id}"
+                               t-attf-class="eo_tile#{'' if subcat.image else ' eo_tile_no_image'}">
+                                <span class="eo_tile_media" t-if="subcat.image">
+                                    <img
+                                        t-attf-src="/web/image/easy.order.category/#{subcat.id}/image/256x256"
+                                        t-att-alt="subcat.public_name or subcat.name"
+                                        loading="lazy"
+                                    />
+                                </span>
+                                <span class="eo_tile_label" t-esc="subcat.public_name or subcat.name"/>
+                            </a>
+                        </t>
                     </div>
-                    <a href="/shop/cart" class="eo_cart_link">
-                        🛒 Cart
-                        <span class="eo_cart_count" t-esc="cart_qty"/>
-                    </a>
                 </div>
 
-                <a href="/easy-order" class="eo_back">← Back to categories</a>
-                <h1 class="eo_title" t-esc="category.name"/>
-                <p class="eo_subtitle">Tap "Add to Cart" for anything you'd like.</p>
+                <div t-if="popular_products" class="eo_popular_row">
+                    <h2 class="eo_section_title">জনপ্রিয় পণ্য</h2>
+                    <div class="eo_popular_row_items">
+                        <t t-foreach="popular_products" t-as="product">
+                            <div t-attf-class="eo_search_result eo_popular_item#{' eo_search_result_out_of_stock' if product_out_of_stock.get(product.id) else ''}">
+                                <img
+                                    t-attf-src="/web/image/product.product/#{product.id}/image_128"
+                                    t-att-alt="product.display_name"
+                                    loading="lazy"
+                                />
+                                <div class="eo_search_result_info">
+                                    <p class="eo_search_result_name" t-esc="product.display_name"/>
+                                    <p class="eo_search_result_price"
+                                       t-esc="product_prices.get(product.id)"
+                                       t-options="{'widget': 'monetary', 'display_currency': product.currency_id}"/>
+                                </div>
+                                <button
+                                    t-if="not product_out_of_stock.get(product.id)"
+                                    type="button"
+                                    class="eo_add_btn eo_add_btn_small"
+                                    t-att-data-product-id="product.product_tmpl_id.id"
+                                    t-att-data-variant-id="product.id"
+                                >কার্টে যোগ করুন</button>
+                                <span t-if="product_out_of_stock.get(product.id)" class="eo_out_of_stock_label">স্টকে নেই</span>
+                            </div>
+                        </t>
+                    </div>
+                </div>
+
+                <h2 t-if="subcategories" class="eo_section_title">সব <t t-esc="category.public_name or category.name"/></h2>
 
                 <div class="eo_product_grid">
                     <t t-foreach="products" t-as="product">
-                        <div class="eo_product_card">
+                        <div t-attf-class="eo_product_card#{' eo_product_card_out_of_stock' if product_out_of_stock.get(product.id) else ''}">
                             <img
-                                t-attf-src="/web/image/product.template/#{product.id}/image_128"
-                                t-att-alt="product.name"
+                                class="eo_product_image"
+                                t-attf-src="/web/image/product.product/#{product.id}/image_128"
+                                t-att-alt="product.display_name"
                                 loading="lazy"
                             />
                             <div class="eo_product_info">
-                                <p class="eo_product_name" t-esc="product.name"/>
+                                <p class="eo_product_name" t-esc="product.display_name"/>
                                 <p class="eo_product_price"
-                                   t-esc="product.list_price"
+                                   t-esc="product_prices.get(product.id)"
                                    t-options="{'widget': 'monetary', 'display_currency': product.currency_id}"/>
                             </div>
                             <button
+                                t-if="not product_out_of_stock.get(product.id)"
                                 type="button"
                                 class="eo_add_btn"
-                                t-att-data-product-id="product.id"
-                            >Add to Cart</button>
+                                t-att-data-product-id="product.product_tmpl_id.id"
+                                t-att-data-variant-id="product.id"
+                            >কার্টে যোগ করুন</button>
+                            <span t-if="product_out_of_stock.get(product.id)" class="eo_out_of_stock_label">স্টকে নেই</span>
                         </div>
                     </t>
                 </div>
 
                 <div t-if="not products" class="eo_empty_state">
-                    <p>No products published in this category yet.</p>
+                    <p>এই বিভাগে এখনো কোনো পণ্য যোগ করা হয়নি।</p>
+                </div>
+
+                <div class="eo_tell_us_row">
+                    <a href="/easy-order/request" class="eo_tell_us_link">
+                        খুঁজে পাচ্ছেন না? আমাদের জানান কী চাই →
+                    </a>
+                </div>
+
+            </div>
+        </t>
+    </template>
+
+    <!-- "Can't find it? Tell us" — a plain free-text intake form for
+         anyone who'd rather describe what they want in their own words
+         than browse/search the catalog. Deliberately shared across
+         every section rather than scoped to one — nothing submitted
+         here is matched to a real product yet; a staff member reviews
+         and converts each one into a real sale.order afterward (see
+         easy.order.request in models/, and its backend views). -->
+    <template id="page_request_form" name="Easy Order - Tell Us What You Need">
+        <t t-call="website.layout">
+            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-css="true" t-js="false"/>
+            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-js="true" t-css="false" defer_load="True"/>
+            <div class="eo_page">
+
+                <t t-call="easy_order_interface.topbar"/>
+
+                <a href="/easy-order" class="eo_back">← বিভাগে ফিরে যান</a>
+                <h1 class="eo_title">আপনি কী খুঁজছেন আমাদের জানান</h1>
+                <p class="eo_subtitle">
+                    নিজে খুঁজে পাচ্ছেন না? নিচে নিজের ভাষায় লিখুন, আমরা
+                    খুঁজে বের করে আপনাকে কল করব।
+                </p>
+
+                <p t-if="error" class="eo_form_error" t-esc="error"/>
+
+                <form action="/easy-order/request/submit" method="post" class="eo_request_form">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+
+                    <label class="eo_form_label" for="eo_customer_name">আপনার নাম</label>
+                    <input
+                        id="eo_customer_name"
+                        type="text"
+                        name="customer_name"
+                        class="eo_form_input"
+                        t-att-value="form_values.get('customer_name') if form_values else ''"
+                        required="required"
+                    />
+
+                    <label class="eo_form_label" for="eo_phone">আপনার ফোন নম্বর</label>
+                    <input
+                        id="eo_phone"
+                        type="tel"
+                        name="phone"
+                        class="eo_form_input"
+                        t-att-value="form_values.get('phone') if form_values else ''"
+                        required="required"
+                    />
+
+                    <label class="eo_form_label" for="eo_address">আপনার ঠিকানা (ঐচ্ছিক)</label>
+                    <textarea
+                        id="eo_address"
+                        name="address"
+                        class="eo_form_input eo_form_textarea"
+                        t-esc="form_values.get('address') if form_values else ''"
+                    />
+
+                    <label class="eo_form_label">আপনি কী খুঁজছেন?</label>
+                    <div id="eo_request_items" class="eo_request_items">
+                        <div class="eo_request_item_row">
+                            <input
+                                type="text"
+                                name="item_name"
+                                class="eo_form_input eo_request_item_name"
+                                placeholder="যেমন: পুলিশ অফিসারের জীবনী নিয়ে বইটি"
+                                required="required"
+                            />
+                            <input
+                                type="number"
+                                name="item_qty"
+                                class="eo_form_input eo_request_item_qty"
+                                value="1"
+                                min="1"
+                                step="1"
+                                aria-label="পরিমাণ"
+                            />
+                        </div>
+                    </div>
+                    <button type="button" id="eo_add_item_row" class="eo_add_item_btn">+ আরেকটি জিনিস যোগ করুন</button>
+
+                    <button type="submit" class="eo_add_btn eo_request_submit_btn">দোকানে পাঠান</button>
+                </form>
+
+            </div>
+        </t>
+    </template>
+
+    <template id="page_request_thanks" name="Easy Order - Request Received">
+        <t t-call="website.layout">
+            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-css="true" t-js="false"/>
+            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-js="true" t-css="false" defer_load="True"/>
+            <div class="eo_page">
+
+                <t t-call="easy_order_interface.topbar"/>
+
+                <div class="eo_thanks_state">
+                    <h1 class="eo_title">ধন্যবাদ!</h1>
+                    <p class="eo_subtitle">
+                        আপনার অনুরোধ আমরা পেয়েছি। খান স্টোর থেকে শীঘ্রই
+                        আপনাকে কল করে অর্ডার নিশ্চিত করা হবে।
+                    </p>
+                    <a href="/easy-order" class="eo_add_btn">← হোমে ফিরে যান</a>
                 </div>
 
             </div>

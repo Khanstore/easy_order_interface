@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_easy_order_category_import_wizard_form" model="ir.ui.view">
+        <field name="name">easy.order.category.import.wizard.form</field>
+        <field name="model">easy.order.category.import.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <p>
+                    Copies each selected shop category — its name, image,
+                    subcategories, and products — into a new Easy Order
+                    category tree. This is a one-time copy, not an
+                    ongoing sync: renaming or reorganizing either
+                    structure afterward doesn't affect the other, and
+                    running this again will create duplicates rather
+                    than update what's already there.
+                </p>
+                <field name="category_ids" widget="many2many_tags"/>
+                <footer>
+                    <button
+                        name="action_import"
+                        type="object"
+                        string="Import"
+                        class="btn-primary"
+                    />
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_easy_order_category_import_wizard" model="ir.actions.act_window">
+        <field name="name">Import Categories from Shop</field>
+        <field name="res_model">easy.order.category.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem
+        id="menu_easy_order_category_import_wizard"
+        name="Import from Shop"
+        parent="menu_easy_order_request_root"
+        action="action_easy_order_category_import_wizard"
+        sequence="15"
+    />
+
+</odoo>

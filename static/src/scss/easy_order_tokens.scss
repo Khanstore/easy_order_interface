@@ -1,0 +1,43 @@
+// Easy Order Interface — design tokens.
+//
+// This module used to depend on khan_easy_order for these colours and
+// fonts. That module has been removed from the database, so everything
+// this page needs is now self-contained here instead: colour variables,
+// font stacks, and a self-hosted copy of Atkinson Hyperlegible (chosen
+// for its low-vision legibility, which matters for this "easy order for
+// the aged" page). Headings fall back to a plain serif system stack
+// rather than self-hosting a second typeface, to keep this module
+// lightweight.
+
+// ---------------------------------------------------------------------
+// Colours
+// ---------------------------------------------------------------------
+$eo-forest: #2f5233;
+$eo-forest-dark: #1f3a22;
+$eo-gold: #c9a227;
+$eo-ink: #222222;
+$eo-ink-soft: #555555;
+$eo-tan-line: #d8c9a3;
+$eo-paper-shade: #f0e8d8;
+
+// ---------------------------------------------------------------------
+// Fonts
+// ---------------------------------------------------------------------
+$eo-font-sans: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+$eo-font-serif: Georgia, 'Times New Roman', Times, serif;
+
+@font-face {
+    font-family: 'Atkinson Hyperlegible';
+    src: url('/easy_order_interface/static/src/fonts/AtkinsonHyperlegible-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Atkinson Hyperlegible';
+    src: url('/easy_order_interface/static/src/fonts/AtkinsonHyperlegible-Bold.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}

@@ -1,20 +1,50 @@
 // Easy Order Interface — page-specific layout only.
 //
-// Colour/spacing tokens ($eo-forest, $eo-gold, $eo-tan-line, etc.) and
-// the Atkinson Hyperlegible / Fraunces @font-face rules are NOT
-// redeclared here — they come from khan_easy_order, which this module
-// depends on. Odoo loads a dependency's frontend assets before the
-// dependent module's own assets in the same 'web.assets_frontend'
-// bundle, so those Sass variables are already in scope by the time
-// this file compiles. If you ever install this module standalone
-// without khan_easy_order, these variables will not exist and the
-// build will fail — that's intentional, since this module is not
-// meant to duplicate that design system.
+// Colour/font tokens ($eo-forest, $eo-gold, $eo-tan-line, $eo-font-sans,
+// etc.) and the self-hosted Atkinson Hyperlegible @font-face rules live
+// in easy_order_tokens.scss, loaded earlier in this module's own
+// bundle (see the 'assets' key in __manifest__.py) — this module is
+// fully self-contained and no longer depends on khan_easy_order.
 
 .eo_page {
     max-width: 900px;
     margin: 0 auto;
     padding: 28px 20px 60px 20px;
+    font-family: $eo-font-sans;
+    color: $eo-ink;
+    // Every font-size below this point is written in em, relative to
+    // this. --eo-font-scale is set on <html> by the A/A+/A++ toggle in
+    // the topbar (see easy_order_interface.js) — 1 by default, so
+    // nothing changes unless the person has actually turned it up.
+    font-size: calc(16px * var(--eo-font-scale, 1));
+
+    // Defensive reset: this page is embedded inside website.layout,
+    // which belongs to whatever theme is active. If that theme sets a
+    // non-default global box-sizing or adds margin/padding to bare
+    // elements (h1/p/etc.), it can silently add or remove space here
+    // in ways this stylesheet doesn't account for. Scoping a reset to
+    // .eo_page (rather than touching html/body globally) keeps every
+    // element inside this page predictable without affecting any other
+    // page on the site.
+    *, *::before, *::after {
+        box-sizing: border-box;
+    }
+
+    h1, h2, p {
+        margin: 0;
+    }
+
+    // A single, consistent, high-contrast focus style for every
+    // interactive element on this page — keyboard and switch-device
+    // navigation shouldn't have to guess where focus currently is.
+    // :focus-visible (not :focus) so a mouse/touch click doesn't show a
+    // ring that's only meant for keyboard navigation.
+    a:focus-visible,
+    button:focus-visible,
+    input:focus-visible {
+        outline: 3px solid #1a73e8;
+        outline-offset: 2px;
+    }
 }
 
 .eo_topbar {
@@ -26,17 +56,86 @@
     gap: 12px;
 }
 
+.eo_topbar_actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
 .eo_brand_name {
-    font-family: 'Fraunces', serif;
-    font-size: 22px;
+    font-family: $eo-font-serif;
+    font-size: 1.375em;
     font-weight: 700;
     color: $eo-forest-dark;
 }
 
 .eo_brand_tag {
-    font-size: 14px;
+    font-size: 0.875em;
     color: $eo-ink-soft;
     margin-left: 8px;
+}
+
+.eo_font_toggle {
+    display: inline-flex;
+    border: 2px solid $eo-tan-line;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.eo_font_toggle_btn {
+    background-color: #fff;
+    color: $eo-ink;
+    border: none;
+    border-right: 2px solid $eo-tan-line;
+    padding: 8px 12px;
+    font-family: $eo-font-sans;
+    font-weight: 700;
+    cursor: pointer;
+    // Deliberately NOT scaled by --eo-font-scale (fixed px, not em) —
+    // this control's own label should stay a consistent, predictable
+    // size regardless of which size it's currently set to.
+    font-size: 15px;
+
+    &:last-child { border-right: none; }
+    &:hover { background-color: $eo-paper-shade; }
+
+    &.eo_font_toggle_btn_active {
+        background-color: $eo-forest;
+        color: #fff;
+    }
+}
+
+.eo_call_link,
+.eo_whatsapp_link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border-radius: 999px;
+    border: 2px solid $eo-tan-line;
+    color: $eo-ink;
+    font-weight: 700;
+    font-size: 15px;
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover {
+        border-color: $eo-forest;
+        color: $eo-ink;
+    }
+}
+
+.eo_whatsapp_link {
+    background-color: #25d366;
+    border-color: #25d366;
+    color: #fff;
+
+    &:hover {
+        background-color: darken(#25d366, 8%);
+        border-color: darken(#25d366, 8%);
+        color: #fff;
+    }
 }
 
 .eo_cart_link {
@@ -54,6 +153,16 @@
         background-color: darken($eo-gold, 8%);
         color: $eo-forest-dark;
     }
+
+    &.eo_pulse {
+        animation: eo-badge-pulse .5s ease;
+    }
+}
+
+@keyframes eo-badge-pulse {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.18); }
+    100% { transform: scale(1); }
 }
 
 .eo_cart_count:empty::before {
@@ -61,8 +170,8 @@
 }
 
 .eo_title {
-    font-family: 'Fraunces', serif;
-    font-size: 30px;
+    font-family: $eo-font-serif;
+    font-size: 1.875em;
     font-weight: 600;
     color: $eo-ink;
     margin-bottom: 6px;
@@ -70,8 +179,30 @@
 
 .eo_subtitle {
     color: $eo-ink-soft;
-    font-size: 18px;
-    margin-bottom: 26px;
+    font-size: 1.125em;
+    margin-bottom: 16px;
+}
+
+.eo_breadcrumb {
+    font-size: 0.9375em;
+    color: $eo-ink-soft;
+    margin-bottom: 8px;
+
+    a {
+        color: $eo-ink-soft;
+        text-decoration: none;
+
+        &:hover { text-decoration: underline; }
+    }
+}
+
+.eo_breadcrumb_sep {
+    margin: 0 6px;
+}
+
+.eo_breadcrumb_current {
+    color: $eo-ink;
+    font-weight: 700;
 }
 
 .eo_back {
@@ -84,46 +215,366 @@
     &:hover { text-decoration: underline; }
 }
 
+.eo_section_title {
+    font-family: $eo-font-serif;
+    font-size: 1.25em;
+    font-weight: 700;
+    color: $eo-ink;
+    margin: 0 0 14px 0;
+}
+
+// ---------------------------------------------------------------------
+// Search
+// ---------------------------------------------------------------------
+.eo_search_wrap {
+    position: relative;
+    margin-bottom: 18px;
+}
+
+.eo_search_input {
+    width: 100%;
+    font-size: 1.125em;
+    padding: 14px 18px;
+    border-radius: 14px;
+    border: 2px solid $eo-tan-line;
+    background-color: #fff;
+    color: $eo-ink;
+
+    &:focus {
+        outline: none;
+        border-color: $eo-forest;
+    }
+}
+
+.eo_search_results {
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 14px;
+
+    &.eo_search_results_open {
+        display: flex;
+    }
+}
+
+.eo_search_empty {
+    color: $eo-ink-soft;
+    font-size: 1.0625em;
+    padding: 10px 4px;
+}
+
+.eo_search_result {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background-color: #fff;
+    border: 2px solid $eo-tan-line;
+    border-radius: 14px;
+    padding: 12px;
+
+    img {
+        width: 56px;
+        height: 56px;
+        object-fit: contain;
+        border-radius: 10px;
+        background-color: $eo-paper-shade;
+        flex-shrink: 0;
+    }
+}
+
+.eo_search_result_out_of_stock {
+    opacity: .6;
+
+    .eo_out_of_stock_label {
+        padding: 10px 16px;
+        font-size: 0.9375em;
+    }
+}
+
+.eo_search_result_info {
+    flex: 1;
+    min-width: 0;
+}
+
+.eo_search_result_name {
+    font-size: 1.0625em;
+    font-weight: 700;
+    margin: 0 0 2px 0;
+}
+
+.eo_search_result_price {
+    font-size: 1em;
+    font-weight: 700;
+    color: $eo-forest-dark;
+    margin: 0;
+}
+
+.eo_add_btn_small {
+    padding: 10px 16px;
+    font-size: 1em;
+}
+
+// Skeleton loading state, shown immediately while a search request is in
+// flight instead of leaving a blank gap for a moment.
+.eo_search_result_skeleton {
+    pointer-events: none;
+}
+
+.eo_skeleton_block {
+    display: block;
+    background: linear-gradient(
+        90deg,
+        $eo-paper-shade 25%,
+        darken($eo-paper-shade, 6%) 37%,
+        $eo-paper-shade 63%
+    );
+    background-size: 400% 100%;
+    border-radius: 8px;
+    animation: eo-skeleton-shimmer 1.4s ease infinite;
+}
+
+.eo_skeleton_image {
+    width: 56px;
+    height: 56px;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.eo_skeleton_line {
+    height: 14px;
+    margin-bottom: 8px;
+}
+
+.eo_skeleton_line_short {
+    width: 60%;
+    margin-bottom: 0;
+}
+
+@keyframes eo-skeleton-shimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
+
 // ---------------------------------------------------------------------
 // Category tiles
 // ---------------------------------------------------------------------
+.eo_recent_row {
+    margin-bottom: 28px;
+}
+
+.eo_recent_row_title {
+    font-size: 1.0625em;
+    margin-bottom: 10px;
+}
+
+.eo_recent_row_items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.eo_recent_chip {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 2px solid $eo-tan-line;
+    background-color: #fff;
+    color: $eo-ink;
+    font-weight: 700;
+    font-size: 0.9375em;
+    text-decoration: none;
+
+    &:hover {
+        border-color: $eo-forest;
+        color: $eo-ink;
+    }
+}
+
+.eo_subcategories {
+    margin-bottom: 34px;
+    padding-bottom: 30px;
+    border-bottom: 2px solid $eo-tan-line;
+}
+
 .eo_tiles {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 18px;
 }
 
-@media (min-width: 640px) {
-    .eo_tiles { grid-template-columns: repeat(3, 1fr); }
+@media (min-width: 480px) {
+    // 4 tiles per row from small-tablet width up — the page body caps at
+    // 900px, so 4 columns still leaves each tile a comfortable tap target.
+    .eo_tiles { grid-template-columns: repeat(4, 1fr); }
 }
 
+// Tile: the whole card is a square photo (image fills the entire
+// background, edge to edge) with the label floating on top of it in a
+// dark scrim band, rather than a small icon-style image sitting above
+// a caption.
 .eo_tile {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    background-color: #fff;
+    position: relative;
+    display: block;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background-color: $eo-paper-shade;
     border: 2px solid $eo-tan-line;
     border-radius: 16px;
-    padding: 22px 14px;
-    text-align: center;
     text-decoration: none;
-    color: $eo-ink;
-    font-size: 19px;
-    font-weight: 700;
     transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
 
     &:hover {
         border-color: $eo-forest;
         box-shadow: 0 4px 0 $eo-tan-line;
         transform: translateY(-2px);
-        color: $eo-ink;
     }
 
+    &.eo_tile_hidden {
+        display: none;
+    }
+}
+
+.eo_tile_media {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+
     img {
-        width: 64px;
-        height: 64px;
-        object-fit: contain;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+}
+
+.eo_tile_label {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 22px 10px 12px 10px;
+    text-align: center;
+    color: #fff;
+    font-size: 1em;
+    font-weight: 700;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .5);
+    // Scrim so light-coloured photos still keep the floating text
+    // readable, without darkening the top of the image.
+    background: linear-gradient(to top, rgba(0, 0, 0, .65), rgba(0, 0, 0, 0));
+}
+
+// No photo set for this category: rather than showing Odoo's broken
+// "image not set" placeholder icon, the tile is just a plain card with
+// its name centred on it.
+.eo_tile_no_image .eo_tile_label {
+    top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    color: $eo-ink;
+    text-shadow: none;
+    background: none;
+}
+
+.eo_tiles_more_wrap {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 18px;
+}
+
+.eo_show_more_btn,
+.eo_show_all_btn {
+    background-color: #fff;
+    color: $eo-forest-dark;
+    border: 2px solid $eo-tan-line;
+    border-radius: 999px;
+    padding: 10px 22px;
+    font-size: 1em;
+    font-weight: 700;
+    cursor: pointer;
+
+    &:hover {
+        border-color: $eo-forest;
+    }
+}
+
+.eo_show_all_btn {
+    background-color: $eo-forest;
+    color: #fff;
+    border-color: $eo-forest;
+
+    &:hover {
+        background-color: $eo-forest-dark;
+        border-color: $eo-forest-dark;
+    }
+}
+
+// ---------------------------------------------------------------------
+// Popular picks — a horizontally-scrolling row of best-sellers for this
+// category, reusing the same compact card look as search results.
+// ---------------------------------------------------------------------
+.eo_popular_row {
+    margin-bottom: 34px;
+    padding-bottom: 30px;
+    border-bottom: 2px solid $eo-tan-line;
+}
+
+.eo_popular_row_items {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    // Native touch/trackpad scrolling only — no custom scroll JS, so
+    // this can't silently break if the widget fails to load.
+    -webkit-overflow-scrolling: touch;
+}
+
+.eo_popular_item {
+    flex: 0 0 auto;
+    width: 190px;
+    // Override .eo_search_result's horizontal row layout: that layout
+    // is meant for a wide dropdown where the name has room to stay on
+    // one or two lines. Squeezed into a narrow fixed-width card, long
+    // names wrapped to many lines and pushed the button to float
+    // vertically-centered in the middle of the card instead of sitting
+    // at the bottom. A vertical card avoids that entirely.
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 14px;
+
+    img {
+        width: 100%;
+        height: 140px;
+        border-radius: 10px;
+    }
+
+    .eo_search_result_info {
+        flex: 1;
+    }
+
+    .eo_search_result_name {
+        // Long titles are common in this catalog — clamp to 3 lines
+        // with an ellipsis instead of letting the card grow to fit
+        // every word, so every card in the row stays the same height.
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .eo_add_btn_small {
+        width: 100%;
+        text-align: center;
+    }
+
+    .eo_out_of_stock_label {
+        width: 100%;
+        text-align: center;
+        box-sizing: border-box;
     }
 }
 
@@ -155,19 +606,37 @@
     }
 }
 
+// Out of stock: the whole row is dimmed and the Add to Cart button is
+// swapped out for a plain "Out of Stock" label (see .eo_out_of_stock_label)
+// rather than showing a button that would just fail when tapped.
+.eo_product_card_out_of_stock {
+    opacity: .6;
+}
+
+.eo_out_of_stock_label {
+    flex-shrink: 0;
+    padding: 14px 20px;
+    font-size: 1.0625em;
+    font-weight: 700;
+    color: $eo-ink-soft;
+    border: 2px solid $eo-tan-line;
+    border-radius: 12px;
+    white-space: nowrap;
+}
+
 .eo_product_info {
     flex: 1;
     min-width: 0;
 }
 
 .eo_product_name {
-    font-size: 20px;
+    font-size: 1.25em;
     font-weight: 700;
     margin: 0 0 4px 0;
 }
 
 .eo_product_price {
-    font-size: 19px;
+    font-size: 1.1875em;
     font-weight: 700;
     color: $eo-forest-dark;
     margin: 0;
@@ -179,7 +648,7 @@
     border: none;
     border-radius: 12px;
     padding: 14px 20px;
-    font-size: 18px;
+    font-size: 1.125em;
     font-weight: 700;
     cursor: pointer;
     white-space: nowrap;
@@ -200,6 +669,10 @@
         background-color: $eo-gold;
         color: $eo-forest-dark;
         box-shadow: 0 3px 0 darken($eo-gold, 15%);
+        // Permanent post-add state (see the JS: the button stays
+        // disabled and doesn't revert to "Add to Cart"), so this should
+        // read as "done", not "please wait".
+        cursor: default;
     }
 }
 
@@ -207,5 +680,118 @@
     text-align: center;
     padding: 60px 20px;
     color: $eo-ink-soft;
-    font-size: 18px;
+    font-size: 1.125em;
+}
+
+// ---------------------------------------------------------------------
+// "Can't find it? Tell us" — fallback link + free-text request form
+// ---------------------------------------------------------------------
+.eo_tell_us_row {
+    text-align: center;
+    margin-top: 30px;
+    padding-top: 24px;
+    border-top: 2px solid $eo-tan-line;
+}
+
+.eo_tell_us_link {
+    display: inline-block;
+    color: $eo-forest-dark;
+    font-weight: 700;
+    font-size: 1.0625em;
+    text-decoration: none;
+
+    &:hover { text-decoration: underline; }
+}
+
+.eo_form_error {
+    background-color: #fdecea;
+    color: #a33;
+    border: 2px solid #e5b3ac;
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-weight: 700;
+    margin-bottom: 20px;
+}
+
+.eo_request_form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 560px;
+}
+
+.eo_form_label {
+    font-weight: 700;
+    margin-top: 18px;
+}
+
+.eo_form_input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid $eo-tan-line;
+    border-radius: 12px;
+    font-family: $eo-font-sans;
+    font-size: 1.0625em;
+    color: $eo-ink;
+    background-color: #fff;
+
+    &:focus-visible {
+        outline: 3px solid #1a73e8;
+        outline-offset: 1px;
+        border-color: #1a73e8;
+    }
+}
+
+.eo_form_textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.eo_request_items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.eo_request_item_row {
+    display: flex;
+    gap: 10px;
+}
+
+.eo_request_item_name {
+    flex: 1;
+}
+
+.eo_request_item_qty {
+    width: 90px;
+    flex-shrink: 0;
+}
+
+.eo_add_item_btn {
+    align-self: flex-start;
+    margin-top: 8px;
+    background: none;
+    border: 2px dashed $eo-tan-line;
+    border-radius: 999px;
+    padding: 10px 18px;
+    color: $eo-forest-dark;
+    font-weight: 700;
+    font-size: 0.9375em;
+    cursor: pointer;
+
+    &:hover { border-color: $eo-forest; }
+}
+
+.eo_request_submit_btn {
+    margin-top: 26px;
+    align-self: flex-start;
+}
+
+.eo_thanks_state {
+    text-align: center;
+    padding: 60px 20px;
+
+    .eo_title { margin-bottom: 10px; }
+    .eo_subtitle { margin-bottom: 28px; }
+    .eo_add_btn { display: inline-block; text-decoration: none; }
 }
