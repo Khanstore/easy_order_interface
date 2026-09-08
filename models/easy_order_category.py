@@ -131,6 +131,26 @@ class EasyOrderCategory(models.Model):
             else:
                 category.category_path = category.name
 
+    @api.depends('category_path', 'name')
+    def _compute_display_name(self):
+        # Overrides the default (which would just show the bare Internal
+        # Name) so that anywhere this category shows up in a dropdown —
+        # most importantly the Parent Category picker — three different
+        # "Book" categories nested under three different top-level
+        # sections read as "police/book", "students/book", "her/book"
+        # instead of all looking identical and unpickable.
+        for category in self:
+            category.display_name = category.category_path or category.name
+
+    def _search_display_name(self, operator, value):
+        # Odoo 18 searches Many2one autocomplete ("type to search") through
+        # this hook rather than matching the (non-stored-by-default)
+        # display_name column directly. Without this override, typing
+        # "police" into the Parent Category field would find nothing —
+        # the stored, searchable column is still `name` ("Book"), not the
+        # computed display label ("police/book") shown in the dropdown.
+        return ['|', ('name', operator, value), ('category_path', operator, value)]
+
     _sql_constraints = [
         ('code_unique', 'unique(code)',
          'This code is already used by another Easy Order category — '

@@ -9,7 +9,11 @@
 .eo_page {
     max-width: 900px;
     margin: 0 auto;
-    padding: 28px 20px 60px 20px;
+    // Mobile-first: tighter padding by default so a 320-360px phone
+    // isn't losing 20px on each side to whitespace it can't spare; more
+    // room opens up once there's actually space for it (see the
+    // min-width query below).
+    padding: 20px 14px 48px 14px;
     font-family: $eo-font-sans;
     color: $eo-ink;
     // Every font-size below this point is written in em, relative to
@@ -88,7 +92,10 @@
     color: $eo-ink;
     border: none;
     border-right: 2px solid $eo-tan-line;
-    padding: 8px 12px;
+    // 14px vertical padding + this font-size clears the ~44px minimum
+    // comfortable tap target — this app's whole audience is people who
+    // may not have precise touch/pointer control.
+    padding: 14px 16px;
     font-family: $eo-font-sans;
     font-weight: 700;
     cursor: pointer;
@@ -111,7 +118,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 10px 16px;
+    padding: 13px 18px;
     border-radius: 999px;
     border: 2px solid $eo-tan-line;
     color: $eo-ink;
@@ -141,7 +148,7 @@
 .eo_cart_link {
     background-color: $eo-gold;
     color: $eo-forest-dark;
-    padding: 10px 20px;
+    padding: 13px 22px;
     border-radius: 999px;
     font-weight: 700;
     text-decoration: none;
@@ -282,6 +289,33 @@
     }
 }
 
+// The plain search-dropdown row (NOT the Popular-picks card, which is
+// already a fixed-width column layout via .eo_popular_item below and
+// doesn't need this treatment): on a narrow phone, image + name/price +
+// button all trying to fit on one line leaves almost no room for the
+// name. Wrapping the button to its own line by default, then undoing
+// that once there's enough width, keeps it readable either way.
+.eo_search_result:not(.eo_popular_item) {
+    flex-wrap: wrap;
+
+    .eo_add_btn_small,
+    .eo_out_of_stock_label {
+        flex: 1 1 100%;
+        text-align: center;
+    }
+}
+
+@media (min-width: 420px) {
+    .eo_search_result:not(.eo_popular_item) {
+        flex-wrap: nowrap;
+
+        .eo_add_btn_small,
+        .eo_out_of_stock_label {
+            flex: 0 0 auto;
+        }
+    }
+}
+
 .eo_search_result_out_of_stock {
     opacity: .6;
 
@@ -292,7 +326,7 @@
 }
 
 .eo_search_result_info {
-    flex: 1;
+    flex: 1 1 140px;
     min-width: 0;
 }
 
@@ -310,7 +344,7 @@
 }
 
 .eo_add_btn_small {
-    padding: 10px 16px;
+    padding: 12px 16px;
     font-size: 1em;
 }
 
@@ -375,7 +409,7 @@
 
 .eo_recent_chip {
     display: inline-block;
-    padding: 8px 16px;
+    padding: 11px 16px;
     border-radius: 999px;
     border: 2px solid $eo-tan-line;
     background-color: #fff;
@@ -491,7 +525,7 @@
     color: $eo-forest-dark;
     border: 2px solid $eo-tan-line;
     border-radius: 999px;
-    padding: 10px 22px;
+    padding: 13px 24px;
     font-size: 1em;
     font-weight: 700;
     cursor: pointer;
@@ -589,20 +623,42 @@
 
 .eo_product_card {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     background-color: #fff;
     border: 2px solid $eo-tan-line;
     border-radius: 16px;
-    padding: 16px;
+    padding: 14px;
 
     img {
-        width: 72px;
-        height: 72px;
+        width: 64px;
+        height: 64px;
         object-fit: contain;
         border-radius: 12px;
         background-color: $eo-paper-shade;
         flex-shrink: 0;
+    }
+}
+
+@media (min-width: 480px) {
+    // Once there's enough width for image + text + button to sit
+    // comfortably on one line, do that instead of the stacked mobile
+    // default — the button no longer needs its own row.
+    .eo_product_card {
+        flex-wrap: nowrap;
+        padding: 16px;
+
+        img {
+            width: 72px;
+            height: 72px;
+        }
+    }
+
+    .eo_add_btn,
+    .eo_product_card .eo_out_of_stock_label {
+        flex: 0 0 auto;
+        width: auto;
     }
 }
 
@@ -624,8 +680,16 @@
     white-space: nowrap;
 }
 
+.eo_product_card {
+    .eo_add_btn,
+    .eo_out_of_stock_label {
+        flex: 1 1 100%;
+        text-align: center;
+    }
+}
+
 .eo_product_info {
-    flex: 1;
+    flex: 1 1 140px;
     min-width: 0;
 }
 
@@ -773,7 +837,7 @@
     background: none;
     border: 2px dashed $eo-tan-line;
     border-radius: 999px;
-    padding: 10px 18px;
+    padding: 13px 20px;
     color: $eo-forest-dark;
     font-weight: 700;
     font-size: 0.9375em;

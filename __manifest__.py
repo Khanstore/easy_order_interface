@@ -54,7 +54,7 @@ Architecture notes
   storefront's navigation. Staff manage it under Sales > Easy Order >
   Categories.
 """,
-    'version': '18.0.3.4.0',
+    'version': '18.0.3.5.0',
     'category': 'Website/Website',
     'author': 'Khan Store',
     'support': 'shumontor@gmail.com',
