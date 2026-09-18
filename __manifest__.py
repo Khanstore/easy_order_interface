@@ -24,12 +24,14 @@ Architecture notes
   tokens and a self-hosted copy of Atkinson Hyperlegible (chosen for
   low-vision legibility) live in its own static/ folder — it no
   longer depends on khan_easy_order.
-* This module's own CSS/JS load in a DEDICATED bundle
-  (easy_order_interface.assets_easy_order_page), included only inside
-  this module's own templates via <t t-call-assets=.../> — NOT in the
-  shared web.assets_frontend bundle. That means /easy-order is the only
-  page that loads them; every other page on the site (including /shop
-  and checkout) is completely unaffected by this module.
+* This module's own CSS/JS load via the shared web.assets_frontend
+  bundle — required because the JS uses publicWidget and rpc, both of
+  which only exist within that bundle's module graph; a separate
+  custom bundle can't resolve those imports no matter how the
+  <script> tags are ordered. Every style/widget is scoped to .eo_*
+  selectors that only exist on this module's own pages, so in
+  practice /shop, checkout, and the rest of the site are unaffected
+  even though the file itself now loads everywhere.
 * "Can't find it? Tell us" (/easy-order/request) is a free-text intake
   form for anyone who'd rather describe what they want in their own
   words than browse/search the catalog — e.g. "the book about the
@@ -54,7 +56,7 @@ Architecture notes
   storefront's navigation. Staff manage it under Sales > Easy Order >
   Categories.
 """,
-    'version': '18.0.3.5.0',
+    'version': '18.0.4.2.0',
     'category': 'Website/Website',
     'author': 'Khan Store',
     'support': 'shumontor@gmail.com',
@@ -70,9 +72,27 @@ Architecture notes
         'views/easy_order_category_import_wizard_views.xml',
     ],
     'assets': {
-        'easy_order_interface.assets_easy_order_page': [
-            # Colour/font tokens + self-hosted @font-face rules must load
-            # before easy_order_interface.scss, which uses them.
+        'web.assets_frontend': [
+            # This JS imports @web/legacy/js/public/public_widget and
+            # @web/core/network/rpc — those are only ever DEFINED as
+            # part of the web.assets_frontend module graph, so this
+            # file has to live in that same bundle or the browser's
+            # module loader can't resolve the import at all ("modules
+            # needed by other modules but have not been defined"),
+            # regardless of script tag order. A separate custom bundle
+            # (which is what this used to be) looks tidier in theory,
+            # but is fundamentally incompatible with using publicWidget
+            # or rpc.
+            #
+            # This does mean the CSS/JS below now load on EVERY
+            # frontend page, not just /easy-order — but every one of
+            # this module's widgets/styles is scoped to .eo_* selectors
+            # that only exist on this module's own pages, so in
+            # practice it's inert everywhere else; just a little extra
+            # (already-cached-after-first-load) download weight.
+            #
+            # Colour/font tokens + self-hosted @font-face rules must
+            # load before easy_order_interface.scss, which uses them.
             'easy_order_interface/static/src/scss/easy_order_tokens.scss',
             'easy_order_interface/static/src/scss/easy_order_interface.scss',
             'easy_order_interface/static/src/js/easy_order_interface.js',

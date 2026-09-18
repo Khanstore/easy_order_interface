@@ -124,3 +124,14 @@ class EasyOrderRequestLine(models.Model):
              'in once you\'ve worked out what the customer meant.',
     )
     qty = fields.Float(string='Qty', default=1.0, required=True)
+
+    def action_open_suggest_wizard(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'Suggested Products',
+            'res_model': 'easy.order.request.line.suggest.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_line_id': self.id},
+        }

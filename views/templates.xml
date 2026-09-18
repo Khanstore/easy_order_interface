@@ -57,16 +57,6 @@
          id specifically renders the flat top-level directory. -->
     <template id="page_categories" name="Easy Order - Categories">
         <t t-call="website.layout">
-            <!-- This bundle only exists on this module's own pages —
-                 no other page on the site loads this CSS/JS.
-                 JS must load with defer_load="True": website.layout's own
-                 core script (which defines the odoo.define/module-loader
-                 runtime our @odoo-module file compiles down to) is loaded
-                 deferred too. Without matching that, our script — sitting
-                 inline in the body with no defer — ran first and hit
-                 "odoo.define is not a function" before that runtime existed. -->
-            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-css="true" t-js="false"/>
-            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-js="true" t-css="false" defer_load="True"/>
             <div class="eo_page">
 
                 <t t-call="easy_order_interface.topbar"/>
@@ -127,8 +117,6 @@
          top-level one (pretty URL) or nested (id-based URL). -->
     <template id="page_products" name="Easy Order - Products">
         <t t-call="website.layout">
-            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-css="true" t-js="false"/>
-            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-js="true" t-css="false" defer_load="True"/>
             <div class="eo_page"
                  t-att-data-category-id="category.id"
                  t-att-data-category-name="category.public_name or category.name"
@@ -205,17 +193,19 @@
                 <div class="eo_product_grid">
                     <t t-foreach="products" t-as="product">
                         <div t-attf-class="eo_product_card#{' eo_product_card_out_of_stock' if product_out_of_stock.get(product.id) else ''}">
-                            <img
-                                class="eo_product_image"
-                                t-attf-src="/web/image/product.product/#{product.id}/image_128"
-                                t-att-alt="product.display_name"
-                                loading="lazy"
-                            />
-                            <div class="eo_product_info">
-                                <p class="eo_product_name" t-esc="product.display_name"/>
-                                <p class="eo_product_price"
-                                   t-esc="product_prices.get(product.id)"
-                                   t-options="{'widget': 'monetary', 'display_currency': product.currency_id}"/>
+                            <div class="eo_product_card_main">
+                                <img
+                                    class="eo_product_image"
+                                    t-attf-src="/web/image/product.product/#{product.id}/image_128"
+                                    t-att-alt="product.display_name"
+                                    loading="lazy"
+                                />
+                                <div class="eo_product_info">
+                                    <p class="eo_product_name" t-esc="product.display_name"/>
+                                    <p class="eo_product_price"
+                                       t-esc="product_prices.get(product.id)"
+                                       t-options="{'widget': 'monetary', 'display_currency': product.currency_id}"/>
+                                </div>
                             </div>
                             <button
                                 t-if="not product_out_of_stock.get(product.id)"
@@ -252,8 +242,6 @@
          easy.order.request in models/, and its backend views). -->
     <template id="page_request_form" name="Easy Order - Tell Us What You Need">
         <t t-call="website.layout">
-            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-css="true" t-js="false"/>
-            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-js="true" t-css="false" defer_load="True"/>
             <div class="eo_page">
 
                 <t t-call="easy_order_interface.topbar"/>
@@ -308,15 +296,19 @@
                                 placeholder="যেমন: পুলিশ অফিসারের জীবনী নিয়ে বইটি"
                                 required="required"
                             />
-                            <input
-                                type="number"
-                                name="item_qty"
-                                class="eo_form_input eo_request_item_qty"
-                                value="1"
-                                min="1"
-                                step="1"
-                                aria-label="পরিমাণ"
-                            />
+                            <div class="eo_qty_stepper">
+                                <button type="button" class="eo_qty_btn eo_qty_btn_minus" aria-label="পরিমাণ কমান">−</button>
+                                <input
+                                    type="number"
+                                    name="item_qty"
+                                    class="eo_request_item_qty eo_qty_input"
+                                    value="1"
+                                    min="1"
+                                    step="1"
+                                    aria-label="পরিমাণ"
+                                />
+                                <button type="button" class="eo_qty_btn eo_qty_btn_plus" aria-label="পরিমাণ বাড়ান">+</button>
+                            </div>
                         </div>
                     </div>
                     <button type="button" id="eo_add_item_row" class="eo_add_item_btn">+ আরেকটি জিনিস যোগ করুন</button>
@@ -330,8 +322,6 @@
 
     <template id="page_request_thanks" name="Easy Order - Request Received">
         <t t-call="website.layout">
-            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-css="true" t-js="false"/>
-            <t t-call-assets="easy_order_interface.assets_easy_order_page" t-js="true" t-css="false" defer_load="True"/>
             <div class="eo_page">
 
                 <t t-call="easy_order_interface.topbar"/>

@@ -623,13 +623,34 @@
 
 .eo_product_card {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column;
+    gap: 14px;
     background-color: #fff;
     border: 2px solid $eo-tan-line;
     border-radius: 16px;
-    padding: 14px;
+    padding: 16px;
+
+    // Full-width, block-level so the button always sits on its own row
+    // below the image+text — scoped to this card specifically (other
+    // reuses of .eo_add_btn, like the request form's submit button,
+    // keep their own auto-width sizing).
+    > .eo_add_btn,
+    > .eo_out_of_stock_label {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+    }
+}
+
+.eo_product_card_main {
+    display: flex;
+    // Top-align rather than center: with a long title wrapping across
+    // several lines, centering made the image look like it was
+    // floating partway down an unrelated block of text instead of
+    // clearly anchoring the start of it.
+    align-items: flex-start;
+    gap: 16px;
 
     img {
         width: 64px;
@@ -642,23 +663,9 @@
 }
 
 @media (min-width: 480px) {
-    // Once there's enough width for image + text + button to sit
-    // comfortably on one line, do that instead of the stacked mobile
-    // default — the button no longer needs its own row.
-    .eo_product_card {
-        flex-wrap: nowrap;
-        padding: 16px;
-
-        img {
-            width: 72px;
-            height: 72px;
-        }
-    }
-
-    .eo_add_btn,
-    .eo_product_card .eo_out_of_stock_label {
-        flex: 0 0 auto;
-        width: auto;
+    .eo_product_card_main img {
+        width: 72px;
+        height: 72px;
     }
 }
 
@@ -680,22 +687,18 @@
     white-space: nowrap;
 }
 
-.eo_product_card {
-    .eo_add_btn,
-    .eo_out_of_stock_label {
-        flex: 1 1 100%;
-        text-align: center;
-    }
-}
-
 .eo_product_info {
-    flex: 1 1 140px;
+    // A wider basis than before means a long title has more room
+    // before being squeezed into a narrow column — the single biggest
+    // factor in a long title wrapping to one or two words per line.
+    flex: 1 1 200px;
     min-width: 0;
 }
 
 .eo_product_name {
     font-size: 1.25em;
     font-weight: 700;
+    line-height: 1.35;
     margin: 0 0 4px 0;
 }
 
@@ -826,9 +829,55 @@
     flex: 1;
 }
 
-.eo_request_item_qty {
-    width: 90px;
+.eo_qty_stepper {
+    display: flex;
+    align-items: stretch;
     flex-shrink: 0;
+    border: 2px solid $eo-tan-line;
+    border-radius: 12px;
+    overflow: hidden;
+    background-color: #fff;
+}
+
+.eo_qty_btn {
+    width: 46px;
+    flex-shrink: 0;
+    border: none;
+    background-color: $eo-paper-shade;
+    color: $eo-forest-dark;
+    font-size: 1.375em;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+
+    &:hover { background-color: $eo-tan-line; }
+    &:active { background-color: darken($eo-tan-line, 8%); }
+}
+
+.eo_qty_input {
+    width: 52px;
+    flex-shrink: 0;
+    border: none;
+    border-left: 2px solid $eo-tan-line;
+    border-right: 2px solid $eo-tan-line;
+    text-align: center;
+    font-size: 1.0625em;
+    font-weight: 700;
+    color: $eo-ink;
+    // Hide the browser's tiny built-in up/down spinner arrows — the
+    // big +/- buttons on either side replace them, and the native
+    // spinner is too small a target to be worth keeping alongside.
+    -moz-appearance: textfield;
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    &:focus-visible {
+        outline: 3px solid #1a73e8;
+        outline-offset: -2px;
+    }
 }
 
 .eo_add_item_btn {

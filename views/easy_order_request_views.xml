@@ -48,11 +48,46 @@
                     <field name="line_ids">
                         <list editable="bottom">
                             <field name="probable_name" string="Customer said" readonly="1"/>
+                            <button
+                                name="action_open_suggest_wizard"
+                                type="object"
+                                string="Suggest"
+                                icon="fa-magic"
+                                class="btn-link"
+                            />
                             <field name="product_id" string="Real product"/>
                             <field name="qty"/>
                         </list>
                     </field>
                 </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_easy_order_request_line_suggest_wizard_form" model="ir.ui.view">
+        <field name="name">easy.order.request.line.suggest.wizard.form</field>
+        <field name="model">easy.order.request.line.suggest.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <p>
+                    Customer said: <field name="probable_name" readonly="1" nolabel="1"/>
+                </p>
+                <field name="selected_product_tmpl_id" widget="radio"/>
+                <p invisible="suggestion_ids" class="text-muted">
+                    No good matches found in the catalog for this
+                    description — search for the real product directly
+                    on the line instead.
+                </p>
+                <footer>
+                    <button
+                        name="action_use_suggestion"
+                        type="object"
+                        string="Use this product"
+                        class="btn-primary"
+                        invisible="not selected_product_tmpl_id"
+                    />
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
             </form>
         </field>
     </record>

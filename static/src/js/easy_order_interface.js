@@ -413,14 +413,19 @@ publicWidget.registry.EasyOrderShowRecentCategories = publicWidget.Widget.extend
 });
 
 // "Can't find it? Tell us" request form: lets the person add more than
-// one item row. Pure DOM cloning — no framework needed for something
-// this simple, and it degrades gracefully (the form still works with
-// just its one row) if this script fails to load for any reason, since
-// the form is a plain HTML <form method="post"> underneath.
+// one item row, and adjust quantity with tap-friendly +/- buttons
+// instead of typing a number. Pure DOM cloning/manipulation — no
+// framework needed for something this simple, and it degrades
+// gracefully (the form still works, including the number input itself,
+// which accepts typed/scrolled values same as always) if this script
+// fails to load for any reason, since the form is a plain HTML
+// <form method="post"> underneath.
 publicWidget.registry.EasyOrderRequestForm = publicWidget.Widget.extend({
     selector: ".eo_request_form",
     events: {
         "click #eo_add_item_row": "_onAddItemRow",
+        "click .eo_qty_btn_minus": "_onQtyMinusClick",
+        "click .eo_qty_btn_plus": "_onQtyPlusClick",
     },
 
     _onAddItemRow() {
@@ -432,6 +437,21 @@ publicWidget.registry.EasyOrderRequestForm = publicWidget.Widget.extend({
         newRow.querySelector(".eo_request_item_qty").value = "1";
         items.appendChild(newRow);
         newRow.querySelector(".eo_request_item_name").focus();
+    },
+
+    _onQtyMinusClick(ev) {
+        this._stepQty(ev.currentTarget, -1);
+    },
+
+    _onQtyPlusClick(ev) {
+        this._stepQty(ev.currentTarget, 1);
+    },
+
+    _stepQty(button, delta) {
+        const input = button.parentElement.querySelector(".eo_qty_input");
+        const min = parseInt(input.min, 10) || 1;
+        const current = parseInt(input.value, 10) || min;
+        input.value = Math.max(min, current + delta);
     },
 });
 

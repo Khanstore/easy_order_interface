@@ -95,6 +95,7 @@ class EasyOrderCategory(models.Model):
     )
     category_path = fields.Char(
         string='Full Path', compute='_compute_category_path', store=True,
+        recursive=True,
         help='Where this category sits in the tree, e.g. '
              '"police/book/handbook" — read-only, just here so you can '
              'tell at a glance where a deeply-nested category lives '
