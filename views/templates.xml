@@ -5,6 +5,8 @@
          button, and the cart link. Used by every screen below so they
          can't drift out of sync with each other. -->
     <template id="topbar" name="Easy Order - Topbar">
+        <link rel="manifest" href="/easy-order/manifest.json"/>
+        <meta name="theme-color" content="#24513f"/>
         <div class="eo_topbar">
             <div class="eo_brand">
                 <span class="eo_brand_name">Khan Store</span>
@@ -22,6 +24,9 @@
                 <a t-if="support_phone" t-attf-href="https://wa.me/#{support_phone}" class="eo_whatsapp_link" target="_blank" rel="noopener" aria-label="হোয়াটসঅ্যাপে অর্ডার করুন">
                     💬 <span class="eo_whatsapp_link_text">হোয়াটসঅ্যাপ</span>
                 </a>
+                <a href="/easy-order/favorites" class="eo_favorites_link" aria-label="প্রিয় পণ্য">♥ <span>প্রিয়</span></a>
+                <a href="/easy-order/orders" class="eo_orders_link" aria-label="আমার অর্ডার">📦 <span>অর্ডার</span></a>
+                <a href="/easy-order/checkout" class="eo_simple_checkout_link" aria-label="সহজ চেকআউট">✓ <span>সহজ চেকআউট</span></a>
                 <a href="/shop/cart" class="eo_cart_link">
                     🛒 কার্ট
                     <span class="eo_cart_count" t-esc="cart_qty"/>
@@ -46,6 +51,11 @@
                 placeholder="খুঁজুন... (বাংলা বা ইংরেজি)"
                 aria-label="পণ্য খুঁজুন"
             />
+            <select class="eo_voice_language" aria-label="কণ্ঠের ভাষা" title="কণ্ঠের ভাষা">
+                <option value="bn-BD">বাংলা</option>
+                <option value="en-US">English</option>
+            </select>
+            <button type="button" class="eo_voice_btn" aria-label="কণ্ঠ দিয়ে খুঁজুন" title="কণ্ঠ দিয়ে খুঁজুন">🎤</button>
             <div class="eo_search_results"/>
         </div>
     </template>
@@ -57,18 +67,24 @@
          id specifically renders the flat top-level directory. -->
     <template id="page_categories" name="Easy Order - Categories">
         <t t-call="website.layout">
-            <div class="eo_page">
+            <div class="eo_page" t-att-data-eo-csrf-token="request.csrf_token()">
 
                 <t t-call="easy_order_interface.topbar"/>
 
+                <t t-call="easy_order_interface.search_bar"/>
+
                 <h1 class="eo_title">আজ আপনি কী কিনতে চান?</h1>
                 <p class="eo_subtitle">ভিতরে কী আছে দেখতে ছবিতে চাপুন।</p>
-
                 <!-- Filled in by JS from locally-remembered browsing history
                      (see easy_order_interface.js) — hidden until there's
                      actually something to show, and never rendered
                      server-side since this page is cached/shared and this
                      is specific to whoever's browser is looking at it. -->
+                <div id="eo_recent_products" class="eo_recent_row" style="display: none;">
+                    <h2 class="eo_section_title eo_recent_row_title">সম্প্রতি দেখা পণ্য</h2>
+                    <div class="eo_recent_row_items"/>
+                </div>
+
                 <div id="eo_recent_categories" class="eo_recent_row" style="display: none;">
                     <h2 class="eo_section_title eo_recent_row_title">সম্প্রতি দেখেছেন</h2>
                     <div class="eo_recent_row_items"/>
@@ -117,7 +133,7 @@
          top-level one (pretty URL) or nested (id-based URL). -->
     <template id="page_products" name="Easy Order - Products">
         <t t-call="website.layout">
-            <div class="eo_page"
+            <div class="eo_page" t-att-data-eo-csrf-token="request.csrf_token()"
                  t-att-data-category-id="category.id"
                  t-att-data-category-name="category.public_name or category.name"
                  t-att-data-category-url="category_url"
@@ -165,16 +181,17 @@
                         <t t-foreach="popular_products" t-as="product">
                             <div t-attf-class="eo_search_result eo_popular_item#{' eo_search_result_out_of_stock' if product_out_of_stock.get(product.id) else ''}">
                                 <img
-                                    t-attf-src="/web/image/product.product/#{product.id}/image_128"
+                                    t-attf-src="/web/image/product.product/#{product.id}/image_512"
                                     t-att-alt="product.display_name"
                                     loading="lazy"
                                 />
                                 <div class="eo_search_result_info">
-                                    <p class="eo_search_result_name" t-esc="product.display_name"/>
+                                    <a class="eo_search_result_name eo_product_link" t-att-data-variant-id="product.id" t-att-href="product.product_tmpl_id.website_url or '/shop/product/%s' % product.product_tmpl_id.id" t-esc="product.display_name"/>
                                     <p class="eo_search_result_price"
                                        t-esc="product_prices.get(product.id)"
                                        t-options="{'widget': 'monetary', 'display_currency': product.currency_id}"/>
                                 </div>
+                                <button type="button" class="eo_favorite_btn" t-att-data-variant-id="product.id" aria-label="প্রিয়তে রাখুন">♥</button>
                                 <button
                                     t-if="not product_out_of_stock.get(product.id)"
                                     type="button"
@@ -196,17 +213,18 @@
                             <div class="eo_product_card_main">
                                 <img
                                     class="eo_product_image"
-                                    t-attf-src="/web/image/product.product/#{product.id}/image_128"
+                                    t-attf-src="/web/image/product.product/#{product.id}/image_512"
                                     t-att-alt="product.display_name"
                                     loading="lazy"
                                 />
                                 <div class="eo_product_info">
-                                    <p class="eo_product_name" t-esc="product.display_name"/>
+                                    <a class="eo_product_name eo_product_link" t-att-data-variant-id="product.id" t-att-href="product.product_tmpl_id.website_url or '/shop/product/%s' % product.product_tmpl_id.id" t-esc="product.display_name"/>
                                     <p class="eo_product_price"
                                        t-esc="product_prices.get(product.id)"
                                        t-options="{'widget': 'monetary', 'display_currency': product.currency_id}"/>
                                 </div>
                             </div>
+                            <button type="button" class="eo_favorite_btn" t-att-data-variant-id="product.id" aria-label="প্রিয়তে রাখুন">♥</button>
                             <button
                                 t-if="not product_out_of_stock.get(product.id)"
                                 type="button"
@@ -217,6 +235,10 @@
                             <span t-if="product_out_of_stock.get(product.id)" class="eo_out_of_stock_label">স্টকে নেই</span>
                         </div>
                     </t>
+                </div>
+
+                <div t-if="product_total > product_page_size" class="eo_pagination" data-eo-pagination="1" t-att-data-eo-offset="product_page_size" t-att-data-eo-total="product_total" t-att-data-eo-limit="product_page_size">
+                    <button type="button" class="eo_load_more_btn">আরও পণ্য দেখুন</button>
                 </div>
 
                 <div t-if="not products" class="eo_empty_state">
@@ -233,6 +255,67 @@
         </t>
     </template>
 
+    <template id="page_checkout" name="Easy Order - Simple Checkout">
+        <t t-call="website.layout">
+            <div class="eo_page eo_checkout_page">
+                <t t-call="easy_order_interface.topbar"/>
+                <a href="/shop/cart" class="eo_back">← কার্টে ফিরে যান</a>
+                <h1 class="eo_title">সহজ চেকআউট</h1>
+                <p class="eo_subtitle">আপনার পণ্যগুলো একবার দেখে ডেলিভারি ও পেমেন্টে যান।</p>
+                <div class="eo_checkout_steps"><span class="eo_step_active">1. কার্ট</span><span>→</span><span>2. ডেলিভারি</span><span>→</span><span>3. পেমেন্ট</span><span>→</span><span>4. নিশ্চিত</span></div>
+                <div class="eo_checkout_summary">
+                    <t t-foreach="order.order_line" t-as="line">
+                        <div class="eo_checkout_line">
+                            <span><t t-esc="line.product_id.display_name"/> × <t t-esc="line.product_uom_qty"/></span>
+                            <strong t-esc="line.price_subtotal" t-options="{'widget':'monetary','display_currency':order.currency_id}"/>
+                        </div>
+                    </t>
+                    <div class="eo_checkout_total"><span>মোট</span><strong t-esc="order.amount_total" t-options="{'widget':'monetary','display_currency':order.currency_id}"/></div>
+                </div>
+                <a href="/shop/checkout" class="eo_add_btn eo_checkout_continue">ডেলিভারি ও পেমেন্টে যান →</a>
+            </div>
+        </t>
+    </template>
+
+    <template id="page_orders" name="Easy Order - Order Tracking">
+        <t t-call="website.layout">
+            <div class="eo_page" t-att-data-eo-csrf-token="request.csrf_token()">
+                <t t-call="easy_order_interface.topbar"/>
+                <a href="/easy-order" class="eo_back">← হোমে ফিরে যান</a>
+                <h1 class="eo_title">আমার অর্ডার</h1>
+                <p class="eo_subtitle">আপনার সাম্প্রতিক অর্ডারের অবস্থা সহজভাবে দেখুন।</p>
+                <t t-if="not orders"><div class="eo_empty_state">এখনো কোনো নিশ্চিত অর্ডার নেই।</div></t>
+                <div class="eo_orders_list">
+                    <t t-foreach="orders" t-as="order">
+                        <article class="eo_order_card">
+                            <div class="eo_order_head"><strong>অর্ডার #<t t-esc="order.name"/></strong><span t-esc="order.date_order"/></div>
+                            <div class="eo_order_timeline">
+                                <div class="eo_timeline_step eo_done"><span>✓</span><b>অর্ডার গ্রহণ</b></div>
+                                <div t-att-class="'eo_timeline_step eo_done' if order.state in ['sale','done'] else 'eo_timeline_step'"><span>✓</span><b>নিশ্চিত</b></div>
+                                <div t-att-class="'eo_timeline_step eo_done' if order_status.get(order.id, {}).get('processing') else 'eo_timeline_step'"><span>🚚</span><b>প্রসেসিং</b></div>
+                                <div t-att-class="'eo_timeline_step eo_done' if order_status.get(order.id, {}).get('delivered') else 'eo_timeline_step'"><span>📦</span><b>শিপড/ডেলিভার্ড</b></div>
+                            </div>
+                            <div class="eo_order_total">মোট: <strong t-esc="order.amount_total" t-options="{'widget':'monetary','display_currency':order.currency_id}"/></div>
+                        </article>
+                    </t>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="page_favorites" name="Easy Order - Favorites">
+        <t t-call="website.layout">
+            <div class="eo_page" data-eo-favorites-page="1" t-att-data-eo-csrf-token="request.csrf_token()">
+                <t t-call="easy_order_interface.topbar"/>
+                <a href="/easy-order" class="eo_back">← বিভাগে ফিরে যান</a>
+                <h1 class="eo_title">প্রিয় পণ্য</h1>
+                <p class="eo_subtitle">আপনার পছন্দের পণ্যগুলো এখানে থাকবে।</p>
+                <div class="eo_favorites_grid"/>
+                <div class="eo_empty_state eo_favorites_empty" style="display:none;"><p>এখনো কোনো প্রিয় পণ্য রাখা হয়নি।</p></div>
+            </div>
+        </t>
+    </template>
+
     <!-- "Can't find it? Tell us" — a plain free-text intake form for
          anyone who'd rather describe what they want in their own words
          than browse/search the catalog. Deliberately shared across
@@ -242,7 +325,7 @@
          easy.order.request in models/, and its backend views). -->
     <template id="page_request_form" name="Easy Order - Tell Us What You Need">
         <t t-call="website.layout">
-            <div class="eo_page">
+            <div class="eo_page" t-att-data-eo-csrf-token="request.csrf_token()">
 
                 <t t-call="easy_order_interface.topbar"/>
 
@@ -322,7 +405,7 @@
 
     <template id="page_request_thanks" name="Easy Order - Request Received">
         <t t-call="website.layout">
-            <div class="eo_page">
+            <div class="eo_page" t-att-data-eo-csrf-token="request.csrf_token()">
 
                 <t t-call="easy_order_interface.topbar"/>
 

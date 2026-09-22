@@ -4,3 +4,5 @@ from . import easy_order_request_suggest_wizard
 from . import easy_order_category
 from . import easy_order_category_import_wizard
 from . import product_template
+
+from . import easy_order_favorite

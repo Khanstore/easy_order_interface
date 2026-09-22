@@ -24,14 +24,11 @@ Architecture notes
   tokens and a self-hosted copy of Atkinson Hyperlegible (chosen for
   low-vision legibility) live in its own static/ folder — it no
   longer depends on khan_easy_order.
-* This module's own CSS/JS load via the shared web.assets_frontend
-  bundle — required because the JS uses publicWidget and rpc, both of
-  which only exist within that bundle's module graph; a separate
-  custom bundle can't resolve those imports no matter how the
-  <script> tags are ordered. Every style/widget is scoped to .eo_*
-  selectors that only exist on this module's own pages, so in
-  practice /shop, checkout, and the rest of the site are unaffected
-  even though the file itself now loads everywhere.
+* This module's own CSS/JS load via web.assets_frontend. The frontend
+  JavaScript is self-contained (native fetch + a tiny public-widget
+  compatibility layer), so it does not require optional Odoo JS modules
+  to be present in a particular frontend asset graph. Every style/widget
+  is scoped to .eo_* selectors that only exist on this module's pages.
 * "Can't find it? Tell us" (/easy-order/request) is a free-text intake
   form for anyone who'd rather describe what they want in their own
   words than browse/search the catalog — e.g. "the book about the
@@ -56,9 +53,9 @@ Architecture notes
   storefront's navigation. Staff manage it under Sales > Easy Order >
   Categories.
 """,
-    'version': '18.0.4.2.0',
+    'version': '18.0.4.3.0',
     'category': 'Website/Website',
-    'author': 'Khan Store',
+    'author': 'SM Ashraf',
     'support': 'shumontor@gmail.com',
     'license': 'LGPL-3',
     'depends': [
@@ -66,6 +63,7 @@ Architecture notes
     ],
     'data': [
         'security/ir.model.access.csv',
+        'data/easy.order.category.csv',
         'views/templates.xml',
         'views/easy_order_request_views.xml',
         'views/easy_order_category_views.xml',
@@ -73,23 +71,10 @@ Architecture notes
     ],
     'assets': {
         'web.assets_frontend': [
-            # This JS imports @web/legacy/js/public/public_widget and
-            # @web/core/network/rpc — those are only ever DEFINED as
-            # part of the web.assets_frontend module graph, so this
-            # file has to live in that same bundle or the browser's
-            # module loader can't resolve the import at all ("modules
-            # needed by other modules but have not been defined"),
-            # regardless of script tag order. A separate custom bundle
-            # (which is what this used to be) looks tidier in theory,
-            # but is fundamentally incompatible with using publicWidget
-            # or rpc.
-            #
-            # This does mean the CSS/JS below now load on EVERY
-            # frontend page, not just /easy-order — but every one of
-            # this module's widgets/styles is scoped to .eo_* selectors
-            # that only exist on this module's own pages, so in
-            # practice it's inert everywhere else; just a little extra
-            # (already-cached-after-first-load) download weight.
+            # Frontend assets are deliberately self-contained so this
+            # module cannot fail because a theme/custom bundle omitted
+            # an Odoo legacy frontend module. Styles and widgets are
+            # scoped to the Easy Order page.
             #
             # Colour/font tokens + self-hosted @font-face rules must
             # load before easy_order_interface.scss, which uses them.

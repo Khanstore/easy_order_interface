@@ -1,0 +1,28 @@
+id,code,public_name,image,name,sequence,parent_id/id
+easy_order_interface.category_police,police,,,police,10,
+easy_order_interface.category_book,book,,,book,10,easy_order_interface.category_police
+easy_order_interface.category_handbook,handbook,,,handbook,10,easy_order_interface.category_book
+easy_order_interface.category_guide,guide,,,guide,10,easy_order_interface.category_book
+easy_order_interface.category_writer,writer,,,writer,10,easy_order_interface.category_book
+easy_order_interface.category_ahsan,,,,ahsan,10,easy_order_interface.category_writer
+easy_order_interface.category_musa,,,,musa,10,easy_order_interface.category_writer
+easy_order_interface.category_kamal,,,,kamal,10,easy_order_interface.category_writer
+easy_order_interface.category_raihan,,,,raihan,10,easy_order_interface.category_writer
+easy_order_interface.category_shariful,,,,shariful,10,easy_order_interface.category_writer
+easy_order_interface.category_shaheen,,,,shaheen,10,easy_order_interface.category_writer
+easy_order_interface.category_isha,,,,isha,10,easy_order_interface.category_writer
+easy_order_interface.category_jony,,,,jony,10,easy_order_interface.category_writer
+easy_order_interface.category_rahim,,,,rahim,10,easy_order_interface.category_writer
+easy_order_interface.category_mehedi,,,,mehedi,10,easy_order_interface.category_writer
+easy_order_interface.category_rakhal,,,,rakhal,10,easy_order_interface.category_writer
+easy_order_interface.category_atsi,,,,ATSI,10,easy_order_interface.category_guide
+easy_order_interface.category_inspectorship,,,,Inspectorship,10,easy_order_interface.category_guide
+easy_order_interface.category_shashastra,,,,Shashastra,10,easy_order_interface.category_guide
+easy_order_interface.category_likhita,,,,Likhita,10,easy_order_interface.category_guide
+easy_order_interface.category_mcq,,,,MCQ,10,easy_order_interface.category_guide
+easy_order_interface.category_shuchi,,,,Shuchi,10,easy_order_interface.category_book
+easy_order_interface.category_minor,,,,Minor Acts,10,easy_order_interface.category_book
+easy_order_interface.category_madak,,,,Madak,10,easy_order_interface.category_minor
+easy_order_interface.category_nari,,,,Nari O shishu,10,easy_order_interface.category_minor
+easy_order_interface.category_PRB,,,,PRB,10,easy_order_interface.category_book
+easy_order_interface.category_sharak,,,,sharak Paribahan,10,easy_order_interface.category_minor

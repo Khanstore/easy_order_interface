@@ -202,6 +202,19 @@ class EasyOrderCategory(models.Model):
                 )
         return res
 
+    @api.constrains('parent_id')
+    def _check_parent_recursion(self):
+        for category in self:
+            seen = set()
+            current = category
+            while current:
+                if current.id in seen:
+                    raise ValidationError(
+                        'A category cannot be its own parent or a descendant of itself.'
+                    )
+                seen.add(current.id)
+                current = current.parent_id
+
     @api.constrains('code', 'parent_id')
     def _check_code(self):
         for category in self:

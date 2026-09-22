@@ -7,7 +7,8 @@
 // fully self-contained and no longer depends on khan_easy_order.
 
 .eo_page {
-    max-width: 900px;
+    width: 100%;
+    max-width: 1400px;
     margin: 0 auto;
     // Mobile-first: tighter padding by default so a 320-360px phone
     // isn't losing 20px on each side to whitespace it can't spare; more
@@ -139,8 +140,8 @@
     color: #fff;
 
     &:hover {
-        background-color: darken(#25d366, 8%);
-        border-color: darken(#25d366, 8%);
+        background-color: #1fb055;
+        border-color: #1fb055;
         color: #fff;
     }
 }
@@ -157,7 +158,7 @@
     gap: 8px;
 
     &:hover {
-        background-color: darken($eo-gold, 8%);
+        background-color: #a78620;
         color: $eo-forest-dark;
     }
 
@@ -359,7 +360,7 @@
     background: linear-gradient(
         90deg,
         $eo-paper-shade 25%,
-        darken($eo-paper-shade, 6%) 37%,
+        #e8dbc2 37%,
         $eo-paper-shade 63%
     );
     background-size: 400% 100%;
@@ -613,27 +614,27 @@
 }
 
 // ---------------------------------------------------------------------
-// Product grid
+// Product grid — two columns on normal/tablet/desktop displays, one
+// column on narrow phones. The grid and image sizes use the available
+// viewport rather than fixed page widths so the layout scales cleanly.
 // ---------------------------------------------------------------------
 .eo_product_grid {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(16px, 2vw, 24px);
+    width: 100%;
 }
 
 .eo_product_card {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    min-width: 0;
     background-color: #fff;
     border: 2px solid $eo-tan-line;
     border-radius: 16px;
-    padding: 16px;
+    padding: clamp(12px, 1.5vw, 20px);
 
-    // Full-width, block-level so the button always sits on its own row
-    // below the image+text — scoped to this card specifically (other
-    // reuses of .eo_add_btn, like the request form's submit button,
-    // keep their own auto-width sizing).
     > .eo_add_btn,
     > .eo_out_of_stock_label {
         display: block;
@@ -644,28 +645,43 @@
 }
 
 .eo_product_card_main {
-    display: flex;
-    // Top-align rather than center: with a long title wrapping across
-    // several lines, centering made the image look like it was
-    // floating partway down an unrelated block of text instead of
-    // clearly anchoring the start of it.
-    align-items: flex-start;
-    gap: 16px;
+    display: grid;
+    grid-template-columns: clamp(120px, 15vw, 190px) minmax(0, 1fr);
+    align-items: start;
+    gap: clamp(12px, 1.5vw, 20px);
+    min-width: 0;
 
     img {
-        width: 64px;
-        height: 64px;
+        display: block;
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        height: auto;
+        min-height: 120px;
+        max-height: 190px;
         object-fit: contain;
         border-radius: 12px;
         background-color: $eo-paper-shade;
-        flex-shrink: 0;
     }
 }
 
-@media (min-width: 480px) {
-    .eo_product_card_main img {
-        width: 72px;
-        height: 72px;
+@media (max-width: 700px) {
+    .eo_product_grid {
+        grid-template-columns: 1fr;
+    }
+
+    .eo_product_card_main {
+        grid-template-columns: clamp(105px, 30vw, 150px) minmax(0, 1fr);
+
+        img {
+            min-height: 105px;
+            max-height: 150px;
+        }
+    }
+}
+
+@media (min-width: 1400px) {
+    .eo_product_card_main {
+        grid-template-columns: 190px minmax(0, 1fr);
     }
 }
 
@@ -735,7 +751,7 @@
     &.eo_added {
         background-color: $eo-gold;
         color: $eo-forest-dark;
-        box-shadow: 0 3px 0 darken($eo-gold, 15%);
+        box-shadow: 0 3px 0 #896e1b;
         // Permanent post-add state (see the JS: the button stays
         // disabled and doesn't revert to "Add to Cart"), so this should
         // read as "done", not "please wait".
@@ -851,7 +867,7 @@
     cursor: pointer;
 
     &:hover { background-color: $eo-tan-line; }
-    &:active { background-color: darken($eo-tan-line, 8%); }
+    &:active { background-color: #ccb886; }
 }
 
 .eo_qty_input {
@@ -907,4 +923,113 @@
     .eo_title { margin-bottom: 10px; }
     .eo_subtitle { margin-bottom: 28px; }
     .eo_add_btn { display: inline-block; text-decoration: none; }
+}
+
+.eo_search_wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.eo_search_wrap .eo_search_input { flex: 1 1 260px; }
+
+.eo_voice_language {
+    min-height: 52px;
+    border: 2px solid $eo-tan-line;
+    border-radius: 12px;
+    padding: 0 10px;
+    background: #fff;
+    font-weight: 700;
+}
+.eo_voice_assistant_controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.eo_assistant_text_input {
+    flex: 1 1 280px;
+    min-width: 220px;
+    min-height: 56px;
+    padding: 12px 16px;
+    border: 2px solid $eo-tan-line;
+    border-radius: 999px;
+    background: #fff;
+    color: $eo-ink;
+    font-size: 1.05em;
+}
+.eo_assistant_text_input:focus {
+    outline: none;
+    border-color: $eo-forest;
+}
+.eo_assistant_text_input::placeholder { color: $eo-ink-soft; }
+.eo_voice_btn, .eo_favorite_btn {
+    border: 2px solid $eo-tan-line;
+    background: #fff;
+    color: $eo-forest-dark;
+    border-radius: 12px;
+    min-width: 48px;
+    min-height: 48px;
+    font-size: 1.25em;
+    font-weight: 700;
+    cursor: pointer;
+}
+.eo_voice_btn:hover, .eo_favorite_btn:hover { border-color: $eo-forest; }
+.eo_voice_listening { outline: 4px solid rgba(26,115,232,.25); transform: scale(1.03); }
+.eo_voice_hearing { box-shadow: 0 0 0 4px rgba(36,81,63,.12); }
+.eo_voice_speech { box-shadow: 0 0 0 6px rgba(36,81,63,.18); }
+.eo_favorite_btn { margin-left: auto; }
+.eo_favorite_active { color: #a12; }
+
+.eo_pagination { display: flex; justify-content: center; margin: 28px 0 12px; }
+.eo_load_more_btn {
+    min-height: 56px;
+    padding: 12px 28px;
+    border: 2px solid $eo-forest;
+    border-radius: 999px;
+    background: #fff;
+    color: $eo-forest-dark;
+    font-size: 1.05em;
+    font-weight: 800;
+    cursor: pointer;
+}
+.eo_load_more_btn:hover { background: $eo-paper-shade; }
+.eo_favorites_grid { display: grid; gap: 14px; }
+
+@media (max-width: 600px) {
+    .eo_voice_btn { min-width: 52px; }
+    .eo_favorite_btn { min-width: 44px; min-height: 44px; }
+}
+
+.eo_orders_link, .eo_simple_checkout_link { text-decoration: none; }
+.eo_assistant_btn {
+    min-height:56px; padding:12px 24px; border:2px solid $eo-forest; border-radius:999px;
+    background:#fff; color:$eo-forest-dark; font-size:1.05em; font-weight:800; cursor:pointer;
+}
+.eo_assistant_btn:hover { background:$eo-paper-shade; }
+.eo_section_hint { color:$eo-ink-soft; margin-top:-8px; }
+.eo_product_link { color:inherit; text-decoration:none; display:block; }
+.eo_product_link:hover { text-decoration:underline; }
+.eo_recent_product_chip { display:flex; align-items:center; gap:8px; flex:0 0 auto; padding:8px 12px; border:2px solid $eo-tan-line; border-radius:14px; color:$eo-ink; text-decoration:none; background:#fff; max-width:230px; }
+.eo_recent_product_chip img { width:42px; height:42px; object-fit:contain; border-radius:8px; background:$eo-paper-shade; }
+.eo_recent_product_chip span { font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.eo_recent_row { margin-bottom:28px; }
+.eo_recent_row_items { display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+.eo_voice_assistant { margin:18px 0 28px; padding:18px; border:2px dashed $eo-tan-line; border-radius:16px; background:$eo-paper-shade; }
+.eo_assistant_result { margin-top:14px; }
+.eo_assistant_transcript { font-weight:700; }
+.eo_assistant_items { display:flex; flex-direction:column; gap:8px; margin:12px 0; }
+.eo_assistant_item { display:flex; justify-content:space-between; gap:15px; padding:12px 14px; border-radius:10px; background:#fff; border:1px solid $eo-tan-line; }
+.eo_assistant_confirm { margin-top:6px; }
+.eo_checkout_steps { display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:14px 16px; border-radius:14px; background:$eo-paper-shade; font-weight:700; margin-bottom:20px; }
+.eo_step_active { color:$eo-forest-dark; }
+.eo_checkout_summary { border:2px solid $eo-tan-line; border-radius:16px; padding:8px 16px; background:#fff; }
+.eo_checkout_line, .eo_checkout_total { display:flex; justify-content:space-between; gap:20px; padding:14px 0; border-bottom:1px solid $eo-tan-line; }
+.eo_checkout_total { border-bottom:0; font-size:1.2em; }
+.eo_checkout_continue { display:inline-block; margin-top:20px; text-decoration:none; }
+.eo_order_card { border:2px solid $eo-tan-line; border-radius:16px; padding:18px; margin-bottom:18px; background:#fff; }
+.eo_order_head, .eo_order_total { display:flex; justify-content:space-between; gap:15px; flex-wrap:wrap; }
+.eo_order_timeline { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:22px 0; }
+.eo_timeline_step { text-align:center; padding:12px 6px; border-radius:12px; background:$eo-paper-shade; color:$eo-ink-soft; display:flex; flex-direction:column; gap:5px; }
+.eo_timeline_step.eo_done { color:$eo-forest-dark; border:2px solid $eo-forest; background:#fff; }
+@media (max-width:700px) {
+    .eo_order_timeline { grid-template-columns:repeat(2,1fr); }
+    .eo_checkout_steps { font-size:.95em; }
 }

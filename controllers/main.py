@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import logging
 import re
 
 from odoo import http
@@ -7,6 +8,9 @@ from odoo.exceptions import UserError
 from odoo.osv import expression
 from odoo.tools.translate import _
 from odoo.tools.misc import formatLang
+
+
+_logger = logging.getLogger(__name__)
 
 from ..search_matching import (
     _normalize_search_text,
@@ -92,7 +96,7 @@ class EasyOrderInterface(http.Controller):
             parent = parent.parent_id
         return ancestors
 
-    def _get_category_variants(self, category):
+    def _get_category_variants(self, category, limit=None, offset=0):
         """Sellable variants for the products assigned to this category —
         just category.product_tmpl_ids by default, or also every
         subcategory's products (recursively) if
@@ -114,7 +118,7 @@ class EasyOrderInterface(http.Controller):
             ('product_tmpl_id', 'in', template_ids),
             ('product_tmpl_id.is_published', '=', True),
             ('product_tmpl_id.sale_ok', '=', True),
-        ])
+        ], order='product_tmpl_id asc, id asc', limit=limit, offset=offset)
         # Sorted by the template's own name (not the variant's combination
         # suffix), so "Part 1" / "Part 2" of the same book stay adjacent
         # rather than being scattered by an alphabetical mix-up with
@@ -163,19 +167,31 @@ class EasyOrderInterface(http.Controller):
             return False
         return variant.free_qty <= 0
 
-    def _get_popular_variants(self, variants, limit=6):
-        """The best-selling variants among `variants`, based on actual
-        confirmed order history — not a manual "featured" flag, since
-        this catalog has no such field and a real sales count is more
-        trustworthy than a guess. Returns an empty recordset (so the
-        "Popular" row just doesn't render) if there's no order history
-        yet, e.g. a brand-new category.
+    def _get_popular_variants(self, category, limit=6):
+        """Return the best-selling variants in this category subtree.
+
+        Popularity is calculated from the full category product set, not
+        merely the first paginated page. This keeps the Popular row useful
+        after product pagination was introduced.
         """
-        if not variants:
-            return variants
+        if category.include_subcategory_products:
+            subtree_ids = self._get_category_subtree_ids(category)
+            template_ids = (
+                request.env['easy.order.category'].sudo()
+                .browse(subtree_ids)
+                .mapped('product_tmpl_ids')
+                .ids
+            )
+        else:
+            template_ids = category.product_tmpl_ids.ids
+        if not template_ids:
+            return request.env['product.product']
+
         groups = request.env['sale.order.line'].sudo().read_group(
             domain=[
-                ('product_id', 'in', variants.ids),
+                ('product_id.product_tmpl_id', 'in', template_ids),
+                ('product_id.product_tmpl_id.is_published', '=', True),
+                ('product_id.product_tmpl_id.sale_ok', '=', True),
                 ('order_id.state', 'in', ['sale', 'done']),
             ],
             fields=['product_id', 'product_uom_qty:sum'],
@@ -184,13 +200,118 @@ class EasyOrderInterface(http.Controller):
             limit=limit,
         )
         ordered_ids = [g['product_id'][0] for g in groups if g.get('product_id')]
-        # Preserve the popularity order read_group already gave us —
-        # variants.browse(ids) does NOT do this on its own, it returns
-        # records in the recordset's natural (id) order instead.
-        by_id = {v.id: v for v in variants}
-        return variants.browse([]).union(*(
-            by_id[vid] for vid in ordered_ids if vid in by_id
-        ))
+        return request.env['product.product'].sudo().browse(ordered_ids)
+
+    def _get_buy_again_products(self, limit=8):
+        """Products from the logged-in customer's recent completed/confirmed orders.
+        Never exposes another customer's order history to the public visitor."""
+        user = request.env.user
+        if not user or (hasattr(user, '_is_public') and user._is_public()):
+            return request.env['product.product']
+        partner = user.partner_id
+        if not partner:
+            return request.env['product.product']
+        # Odoo 18 does not allow a dotted relational field such as
+        # ``order_id.date_order`` in a sale.order.line SQL ORDER BY.
+        # Fetch the customer's orders in date order first, then inspect
+        # their lines in that same order.
+        orders = request.env['sale.order'].sudo().search([
+            ('partner_id', '=', partner.id),
+            ('state', 'in', ['sale', 'done']),
+        ], order='date_order desc, id desc', limit=100)
+
+        if not orders:
+            return request.env['product.product']
+
+        lines = request.env['sale.order.line'].sudo().search([
+            ('order_id', 'in', orders.ids),
+            ('product_id.product_tmpl_id.is_published', '=', True),
+            ('product_id.product_tmpl_id.sale_ok', '=', True),
+        ], order='id desc')
+        lines_by_order = {}
+        for line in lines:
+            lines_by_order.setdefault(line.order_id.id, []).append(line)
+
+        seen = set()
+        ordered = []
+        for order in orders:
+            for line in lines_by_order.get(order.id, []):
+                product = line.product_id
+                if product.id and product.id not in seen:
+                    seen.add(product.id)
+                    ordered.append(product)
+                    if len(ordered) >= limit:
+                        break
+            if len(ordered) >= limit:
+                break
+        return request.env['product.product'].sudo().browse([p.id for p in ordered])
+
+    def _product_item(self, variant):
+        return {
+            'variant_id': variant.id, 'template_id': variant.product_tmpl_id.id,
+            'name': variant.display_name,
+            'price_formatted': formatLang(request.env, self._get_invoiced_price(variant), currency_obj=variant.currency_id),
+            'image_url': '/web/image/product.product/%s/image_128' % variant.id,
+            'product_url': getattr(variant.product_tmpl_id, 'website_url', False) or '/shop/product/%s' % variant.product_tmpl_id.id,
+            'out_of_stock': self._is_out_of_stock(variant),
+        }
+
+    def _get_latest_order(self):
+        user = request.env.user
+        if not user or (hasattr(user, '_is_public') and user._is_public()):
+            return request.env['sale.order']
+        return request.env['sale.order'].sudo().search([('partner_id','=',user.partner_id.id),('state','in',['sale','done'])], order='date_order desc, id desc', limit=1)
+
+    def _get_recommended_products(self, category=None, limit=6):
+        Product = request.env['product.product'].sudo()
+        user = request.env.user
+        if not user or (hasattr(user, '_is_public') and user._is_public()):
+            return self._get_popular_variants(category, limit=limit) if category else Product
+        orders = request.env['sale.order'].sudo().search([('partner_id','=',user.partner_id.id),('state','in',['sale','done'])], order='date_order desc, id desc', limit=20)
+        if not orders:
+            return self._get_popular_variants(category, limit=limit) if category else Product
+        purchased = set(orders.mapped('order_line.product_id').ids)
+        lines = request.env['sale.order.line'].sudo().search([('order_id','in',orders.ids),('product_id','not in',list(purchased) or [0]),('product_id.product_tmpl_id.is_published','=',True),('product_id.product_tmpl_id.sale_ok','=',True)])
+        scores = {}
+        for line in lines:
+            scores[line.product_id.id] = scores.get(line.product_id.id, 0) + line.product_uom_qty
+        if category:
+            allowed = set(self._get_category_variants(category, limit=None).ids)
+            scores = {pid: score for pid, score in scores.items() if pid in allowed}
+        ranked = sorted(scores, key=lambda pid: (-scores[pid], pid))
+        result = Product.browse(ranked[:limit])
+        if len(result) < limit and category:
+            fallback = self._get_popular_variants(category, limit=limit*2)
+            result = Product.browse(list(dict.fromkeys(result.ids + fallback.ids))[:limit])
+        return result
+
+    def _build_voice_items(self, text, category_code=None):
+        text = (text or '').strip()
+        if not text: return []
+        nums = {'এক':1,'একটি':1,'একটা':1,'দুই':2,'দুটি':2,'দুটো':2,'তিন':3,'তিনটি':3,'চার':4,'পাঁচ':5,'ছয়':6,'ছয়':6,'সাত':7,'আট':8,'নয়':9,'নয়':9,'দশ':10,'one':1,'a':1,'an':1,'two':2,'three':3,'four':4,'five':5,'six':6,'seven':7,'eight':8,'nine':9,'ten':10}
+        parts = re.split(r'\s*(?:,|\band\b|\bও\b|\bএবং\b|\bআর\b)\s*', text, flags=re.I)
+        Product = request.env['product.product'].sudo()
+        domain=[('product_tmpl_id.is_published','=',True),('product_tmpl_id.sale_ok','=',True)]
+        if category_code:
+            top=self._get_category_by_code_or_404(category_code)
+            if top: domain.append(('product_tmpl_id.easy_order_category_ids','in',self._get_category_subtree_ids(top)))
+        catalog=Product.search(domain, limit=1000)
+        out=[]
+        for part in parts:
+            words=part.strip().split(); qty=1
+            if words and words[0].lower() in nums: qty=nums[words.pop(0).lower()]
+            elif words and words[0].isdigit(): qty=max(1,int(words.pop(0)))
+            query=' '.join(words).strip()
+            if not query: continue
+            groups=[_NORMALIZED_GLOSSARY.get(w,{w}) for w in _tokenize(query)]
+            scored=[]
+            for product in catalog:
+                cats=product.product_tmpl_id.easy_order_category_ids
+                score=_score_product(groups,_tokenize(product.display_name),_tokenize(' '.join(cats.mapped('name')+cats.mapped('public_name'))))
+                if score: scored.append((score,product))
+            scored.sort(key=lambda x:(-x[0],x[1].product_tmpl_id.name or ''))
+            if scored: out.append({'qty':qty,**self._product_item(scored[0][1])})
+        return out
 
     def _get_support_phone(self):
         """Phone/WhatsApp number for the "Call to order" button, set via
@@ -213,8 +334,15 @@ class EasyOrderInterface(http.Controller):
         sees. Picking one (e.g. পুলিশ) takes them to that section's own
         subcategories/products at /easy-order/<code>.
         """
+        buy_again = self._get_buy_again_products()
+        recommended = self._get_recommended_products()
         values = {
+            'top_code': '',
             'categories': self._get_top_level_categories(),
+            'buy_again_products': buy_again,
+            'buy_again_prices': {v.id: self._get_invoiced_price(v) for v in buy_again},
+            'recommended_products': recommended,
+            'recommended_prices': {v.id: self._get_invoiced_price(v) for v in recommended},
             'cart_qty': self._get_cart_quantity(),
             'support_phone': self._get_support_phone(),
         }
@@ -228,19 +356,34 @@ class EasyOrderInterface(http.Controller):
         # button, rather than one row with a dropdown to choose between
         # them. For a person unfamiliar with online shopping, tapping the
         # right card is a lot more direct than picking an option first.
-        variants = self._get_category_variants(category)
+        PAGE_SIZE = 24
+        variants = self._get_category_variants(category, limit=PAGE_SIZE)
+        all_variant_count = None
+        # Count with the same template/category scope, without loading the full recordset.
+        if category.include_subcategory_products:
+            count_category_ids = self._get_category_subtree_ids(category)
+            count_template_ids = request.env['easy.order.category'].sudo().browse(count_category_ids).mapped('product_tmpl_ids').ids
+        else:
+            count_template_ids = category.product_tmpl_ids.ids
+        product_domain = [('product_tmpl_id', 'in', count_template_ids), ('product_tmpl_id.is_published', '=', True), ('product_tmpl_id.sale_ok', '=', True)]
+        all_variant_count = request.env['product.product'].sudo().search_count(product_domain)
         product_prices = {
             variant.id: self._get_invoiced_price(variant) for variant in variants
         }
         product_out_of_stock = {
             variant.id: self._is_out_of_stock(variant) for variant in variants
         }
-        popular_variants = self._get_popular_variants(variants)
+        popular_variants = self._get_popular_variants(category)
+        buy_again_products = self._get_buy_again_products() if not category.parent_id else request.env['product.product']
+        buy_again_prices = {
+            variant.id: self._get_invoiced_price(variant) for variant in buy_again_products
+        }
         ancestors = self._get_category_ancestors(category)
         back_url = (
             '/easy-order' if not category.parent_id
             else self._category_url(category.parent_id, top_code)
         )
+        recommended_products = self._get_recommended_products(category)
         values = {
             'top_code': top_code,
             'category': category,
@@ -252,9 +395,15 @@ class EasyOrderInterface(http.Controller):
             'back_url': back_url,
             'subcategories': subcategories,
             'products': variants,
+            'product_page_size': PAGE_SIZE,
+            'product_total': all_variant_count,
             'popular_products': popular_variants,
             'product_prices': product_prices,
             'product_out_of_stock': product_out_of_stock,
+            'buy_again_products': buy_again_products,
+            'buy_again_prices': buy_again_prices,
+            'recommended_products': recommended_products,
+            'recommended_prices': {v.id: self._get_invoiced_price(v) for v in recommended_products},
             'cart_qty': self._get_cart_quantity(),
             'support_phone': self._get_support_phone(),
         }
@@ -325,10 +474,10 @@ class EasyOrderInterface(http.Controller):
         ])
 
     @http.route(
-        '/easy-order/<string:code>/search', type='json',
+        ['/easy-order/search', '/easy-order/<string:code>/search'], type='json',
         auth='public', website=True,
     )
-    def easy_order_search(self, code, query='', **kwargs):
+    def easy_order_search(self, code=None, query='', **kwargs):
         """Backs the live search box. Scoped to the CURRENT top-level
         section only — searching from within /easy-order/police/...
         only searches products assigned somewhere under পুলিশ, not the
@@ -360,13 +509,32 @@ class EasyOrderInterface(http.Controller):
         "police" finds products filed under a পুলিশ-tagged category even
         if the product's own title doesn't contain that word.
         """
-        top = self._get_category_by_code_or_404(code)
-        if not top:
-            return {'results': []}
+        if code:
+            top = self._get_category_by_code_or_404(code)
+            if not top:
+                return {'results': []}
+            subtree_ids = self._get_category_subtree_ids(top)
+        else:
+            # Global search for the first /easy-order page.
+            subtree_ids = request.env['easy.order.category'].sudo().search([]).ids
+            if not subtree_ids:
+                return {'results': []}
 
         query = (query or '').strip()
         if not query:
             return {'results': []}
+
+        # Smart price filter: phrases such as "under 1000", "below ৳1000"
+        # and Bengali digits are understood without an external AI service.
+        digit_map = str.maketrans('০১২৩৪৫৬৭৮৯', '0123456789')
+        smart_query = query.translate(digit_map)
+        price_match = re.search(r'(?:under|below|less than|upto|up to|<=|\bএর নিচে\b|\bকম\b)\s*(?:৳|tk|taka)?\s*([0-9][0-9,]*)', smart_query, flags=re.I)
+        max_price = None
+        if price_match:
+            max_price = float(price_match.group(1).replace(',', ''))
+            query = (smart_query[:price_match.start()] + smart_query[price_match.end():]).strip()
+        else:
+            query = smart_query
 
         # Each query word expands to itself plus any known translations/
         # synonyms — e.g. "police" also expands to "পুলিশ" (and vice
@@ -375,10 +543,9 @@ class EasyOrderInterface(http.Controller):
             _NORMALIZED_GLOSSARY.get(word, {word})
             for word in _tokenize(query)
         ]
-        if not query_word_groups:
+        if not query_word_groups and max_price is None:
             return {'results': []}
 
-        subtree_ids = self._get_category_subtree_ids(top)
         domain = self._build_search_domain(query, subtree_ids)
         # Capped so one very common word (e.g. "book") can't drag this
         # whole section's catalog into the Python scoring stage on its
@@ -389,7 +556,9 @@ class EasyOrderInterface(http.Controller):
 
         scored = []
         for variant in variants:
-            categories = variant.product_tmpl_id.easy_order_category_ids
+            categories = variant.product_tmpl_id.easy_order_category_ids.filtered(
+                lambda c: c.id in subtree_ids
+            )
             # Both fields — a search for "law books" (internal) and one
             # for "books" (the shared display name) should both be able
             # to find the same product.
@@ -398,8 +567,10 @@ class EasyOrderInterface(http.Controller):
             categ_tokens = []
             for categ_name in categ_names:
                 categ_tokens.extend(_tokenize(categ_name))
-            score = _score_product(query_word_groups, name_tokens, categ_tokens)
+            score = _score_product(query_word_groups, name_tokens, categ_tokens) if query_word_groups else 1
             if score:
+                if max_price is not None and self._get_invoiced_price(variant) > max_price:
+                    continue
                 scored.append((score, variant))
 
         # Best matches first; ties broken alphabetically by the
@@ -419,9 +590,132 @@ class EasyOrderInterface(http.Controller):
                     request.env, price, currency_obj=variant.currency_id,
                 ),
                 'image_url': '/web/image/product.product/%s/image_128' % variant.id,
+                'product_url': getattr(variant.product_tmpl_id, 'website_url', False) or '/shop/product/%s' % variant.product_tmpl_id.id,
                 'out_of_stock': self._is_out_of_stock(variant),
             })
         return {'results': results}
+
+    @http.route(
+        '/easy-order/<string:code>/products', type='json', auth='public', website=True,
+    )
+    def easy_order_products_page(self, code, category_id, offset=0, limit=24, **kwargs):
+        top = self._get_category_by_code_or_404(code)
+        try:
+            category = request.env['easy.order.category'].sudo().browse(int(category_id))
+            offset = max(0, int(offset))
+            limit = min(48, max(1, int(limit)))
+        except (TypeError, ValueError):
+            return {'products': [], 'next_offset': None}
+        if not top or not category.exists() or self._get_top_ancestor(category).id != top.id:
+            return {'products': [], 'next_offset': None}
+        products = self._get_category_variants(category, limit=limit, offset=offset)
+        items = []
+        for variant in products:
+            items.append({
+                'variant_id': variant.id,
+                'template_id': variant.product_tmpl_id.id,
+                'name': variant.display_name,
+                'price_formatted': formatLang(request.env, self._get_invoiced_price(variant), currency_obj=variant.currency_id),
+                'image_url': '/web/image/product.product/%s/image_128' % variant.id,
+                'product_url': getattr(variant.product_tmpl_id, 'website_url', False) or '/shop/product/%s' % variant.product_tmpl_id.id,
+                'out_of_stock': self._is_out_of_stock(variant),
+            })
+        next_offset = offset + len(items) if len(items) == limit else None
+        return {'products': items, 'next_offset': next_offset}
+
+    @http.route('/easy-order/favorites', type='http', auth='public', website=True, sitemap=False)
+    def easy_order_favorites_page(self, **kwargs):
+        return request.render('easy_order_interface.page_favorites', {
+            'cart_qty': self._get_cart_quantity(),
+            'support_phone': self._get_support_phone(),
+        })
+
+    @http.route(
+        '/easy-order/favorites/data', type='json', auth='public', website=True,
+    )
+    def easy_order_favorites(self, product_ids=None, **kwargs):
+        try:
+            ids = [int(x) for x in (product_ids or [])][:100]
+        except (TypeError, ValueError):
+            return {'products': []}
+        if not ids:
+            return {'products': []}
+        products = request.env['product.product'].sudo().search([
+            ('id', 'in', ids),
+            ('product_tmpl_id.is_published', '=', True),
+            ('product_tmpl_id.sale_ok', '=', True),
+        ])
+        by_id = {p.id: p for p in products}
+        items = []
+        for pid in ids:
+            variant = by_id.get(pid)
+            if not variant:
+                continue
+            items.append({
+                'variant_id': variant.id, 'template_id': variant.product_tmpl_id.id,
+                'name': variant.display_name,
+                'price_formatted': formatLang(request.env, self._get_invoiced_price(variant), currency_obj=variant.currency_id),
+                'image_url': '/web/image/product.product/%s/image_128' % variant.id,
+                'product_url': getattr(variant.product_tmpl_id, 'website_url', False) or '/shop/product/%s' % variant.product_tmpl_id.id,
+                'out_of_stock': self._is_out_of_stock(variant),
+            })
+        return {'products': items}
+
+    @http.route('/easy-order/reorder', type='json', auth='user', website=True, csrf=True)
+    def easy_order_reorder(self, **kwargs):
+        order=self._get_latest_order()
+        if not order: return {'error': _('কোনো আগের অর্ডার পাওয়া যায়নি।')}
+        cart=request.website.sale_get_order(force_create=True); added=0
+        for line in order.order_line.filtered(lambda l:l.product_id and l.product_id.product_tmpl_id.is_published and l.product_id.product_tmpl_id.sale_ok):
+            try: cart._cart_update(product_id=line.product_id.id, add_qty=line.product_uom_qty); added+=1
+            except Exception: _logger.exception('Easy Order reorder failed for product %s', line.product_id.id)
+        return {'cart_qty':cart.sudo().cart_quantity,'added_lines':added,'cart_url':'/easy-order/checkout'}
+
+    @http.route('/easy-order/voice/parse', type='json', auth='public', website=True, csrf=True)
+    def easy_order_voice_parse(self, text='', category_code=None, **kwargs):
+        return {'items': self._build_voice_items(text, category_code=category_code)}
+
+    @http.route('/easy-order/favorites/sync', type='json', auth='user', website=True, csrf=True)
+    def easy_order_favorites_sync(self, product_ids=None, **kwargs):
+        try: ids=list(dict.fromkeys(int(x) for x in (product_ids or [])))[:100]
+        except (TypeError,ValueError): ids=[]
+        products=request.env['product.product'].sudo().search([('id','in',ids),('product_tmpl_id.is_published','=',True),('product_tmpl_id.sale_ok','=',True)])
+        Favorite=request.env['easy.order.favorite'].sudo(); partner=request.env.user.partner_id
+        for product in products: Favorite.add_for_partner(partner,product)
+        return {'product_ids': Favorite.search([('partner_id','=',partner.id)]).mapped('product_id').ids[:200]}
+
+    @http.route('/easy-order/favorites/remove', type='json', auth='user', website=True, csrf=True)
+    def easy_order_favorite_remove(self, product_id, **kwargs):
+        try: product_id=int(product_id)
+        except (TypeError,ValueError): return {'ok':False}
+        request.env['easy.order.favorite'].sudo().search([('partner_id','=',request.env.user.partner_id.id),('product_id','=',product_id)]).unlink()
+        return {'ok':True}
+
+    @http.route('/easy-order/checkout', type='http', auth='public', website=True, sitemap=False)
+    def easy_order_checkout(self, **kwargs):
+        order=request.website.sale_get_order()
+        if not order or not order.order_line: return request.redirect('/easy-order')
+        return request.render('easy_order_interface.page_checkout', {'order':order.sudo(),'cart_qty':order.cart_quantity,'support_phone':self._get_support_phone()})
+
+    @http.route('/easy-order/orders', type='http', auth='user', website=True, sitemap=False)
+    def easy_order_orders(self, **kwargs):
+        orders=request.env['sale.order'].sudo().search([('partner_id','=',request.env.user.partner_id.id),('state','in',['sale','done'])],order='date_order desc,id desc',limit=30)
+        order_status = {}
+        for order in orders:
+            pickings = order.picking_ids
+            processing = any(p.state in ['assigned', 'done'] for p in pickings) if pickings else False
+            delivered = bool(pickings) and all(p.state == 'done' for p in pickings)
+            order_status[order.id] = {'processing': processing, 'delivered': delivered}
+        return request.render('easy_order_interface.page_orders', {'orders':orders,'order_status':order_status,'cart_qty':self._get_cart_quantity(),'support_phone':self._get_support_phone()})
+
+    @http.route('/easy-order/manifest.json', type='http', auth='public', website=True, sitemap=False)
+    def easy_order_manifest(self, **kwargs):
+        return request.make_response('{"name":"Easy Order","short_name":"Easy Order","start_url":"/easy-order","display":"standalone","background_color":"#ffffff","theme_color":"#24513f","description":"Simple ordering interface"}',headers=[('Content-Type','application/manifest+json')])
+
+    @http.route('/easy-order/service-worker.js', type='http', auth='public', website=True, sitemap=False)
+    def easy_order_service_worker(self, **kwargs):
+        js="const CACHE='easy-order-v1';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)));});"
+        return request.make_response(js,headers=[('Content-Type','application/javascript'),('Service-Worker-Allowed','/easy-order')])
 
     @http.route(
         '/easy-order/cart/add', type='json', auth='public', website=True,
@@ -438,7 +732,12 @@ class EasyOrderInterface(http.Controller):
             return {'error': _("অন্তত ১টি পরিমাণ বেছে নিন।")}
 
         product = request.env['product.template'].sudo().browse(product_id)
-        if not product.exists() or not product.is_published:
+        if (
+            not product.exists()
+            or not product.active
+            or not product.is_published
+            or not product.sale_ok
+        ):
             return {'error': _("দুঃখিত, এই পণ্যটি এখন পাওয়া যাচ্ছে না।")}
 
         if variant_id:
@@ -482,6 +781,7 @@ class EasyOrderInterface(http.Controller):
             # module's own hardcoded Bengali strings.
             return {'error': str(e)}
         except Exception:
+            _logger.exception("Easy Order cart update failed for product %s", variant.id)
             # Anything unexpected still gets a message in front of the
             # person instead of the button just doing nothing, which is
             # what a bare exception here looks like from the UI.
@@ -533,9 +833,9 @@ class EasyOrderInterface(http.Controller):
             try:
                 qty = float(qty_str)
             except (TypeError, ValueError):
-                qty = 1.0
+                qty = 0
             if qty <= 0:
-                qty = 1.0
+                continue
             lines.append((0, 0, {'probable_name': name, 'qty': qty}))
 
         error = None

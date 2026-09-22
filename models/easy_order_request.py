@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-from odoo import fields, models, _
-from odoo.exceptions import UserError
+from odoo import api, fields, models, _
+from odoo.exceptions import UserError, ValidationError
 
 
 class EasyOrderRequest(models.Model):
@@ -120,10 +120,17 @@ class EasyOrderRequestLine(models.Model):
     )
     product_id = fields.Many2one(
         'product.product', string='Real product',
+        domain=[('active', '=', True), ('sale_ok', '=', True)],
         help='The actual catalog product this line refers to — fill this '
              'in once you\'ve worked out what the customer meant.',
     )
     qty = fields.Float(string='Qty', default=1.0, required=True)
+
+    @api.constrains('qty')
+    def _check_qty(self):
+        for line in self:
+            if line.qty <= 0:
+                raise ValidationError('Quantity must be greater than zero.')
 
     def action_open_suggest_wizard(self):
         self.ensure_one()
