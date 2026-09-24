@@ -96,34 +96,84 @@ class EasyOrderInterface(http.Controller):
             parent = parent.parent_id
         return ancestors
 
-    def _get_category_variants(self, category, limit=None, offset=0):
-        """Sellable variants for the products assigned to this category —
-        just category.product_tmpl_ids by default, or also every
-        subcategory's products (recursively) if
-        category.include_subcategory_products is turned on. Either way,
-        safety-filtered on published/sale_ok — a product left assigned
-        here after being unpublished or archived elsewhere shouldn't
-        still show up.
+    def _get_category_variant_domain(self, category):
+        """Return the effective product.variant domain for a category.
+
+        Easy Order supports three layers of selection:
+
+        * a selected product template means ALL of that template's variants;
+        * a selected product variant means ONLY that variant for its template;
+        * selected variant attribute values filter the resulting variants.
+
+        Attribute values behave like useful storefront filters: values from
+        the same attribute are OR-ed (Color=Black or Brown), while values
+        from different attributes are AND-ed (Color=Black AND Size=L).
+        The filter is resolved at read time, so newly-created matching
+        variants are included automatically.
         """
         if category.include_subcategory_products:
             subtree_ids = self._get_category_subtree_ids(category)
             categories = request.env['easy.order.category'].sudo().browse(subtree_ids)
-            template_ids = categories.mapped('product_tmpl_ids').ids
         else:
-            template_ids = category.product_tmpl_ids.ids
+            categories = category
 
-        if not template_ids:
-            return request.env['product.product']
-        variants = request.env['product.product'].sudo().search([
-            ('product_tmpl_id', 'in', template_ids),
+        template_ids = categories.mapped('product_tmpl_ids').ids
+        explicit_variant_ids = categories.mapped('product_variant_ids').ids
+        attribute_value_ids = categories.mapped('product_attribute_value_ids').ids
+
+        if not template_ids and not explicit_variant_ids:
+            return [('id', '=', 0)]
+
+        # A template is expanded to all variants only when that template has
+        # no explicit variant assignment in this category scope.
+        explicit_variants = request.env['product.product'].sudo().browse(explicit_variant_ids)
+        overridden_template_ids = set(
+            explicit_variants.mapped('product_tmpl_id').ids
+        ) & set(template_ids)
+        template_ids = [tid for tid in template_ids if tid not in overridden_template_ids]
+
+        if template_ids and explicit_variant_ids:
+            selection_domain = [
+                '|',
+                ('product_tmpl_id', 'in', template_ids),
+                ('id', 'in', explicit_variant_ids),
+            ]
+        elif template_ids:
+            selection_domain = [('product_tmpl_id', 'in', template_ids)]
+        else:
+            selection_domain = [('id', 'in', explicit_variant_ids)]
+
+        # Attribute filtering is applied AFTER template/variant selection.
+        # Group values by their attribute so Color=Black+Brown means either
+        # color, while Color=Black+Size=L requires both conditions.
+        if attribute_value_ids:
+            values = request.env['product.attribute.value'].sudo().browse(attribute_value_ids)
+            values_by_attribute = {}
+            for value in values:
+                values_by_attribute.setdefault(value.attribute_id.id, []).append(value.id)
+
+            for value_ids in values_by_attribute.values():
+                selection_domain.append((
+                    'product_template_attribute_value_ids.product_attribute_value_id',
+                    'in', value_ids,
+                ))
+
+        return selection_domain + [
             ('product_tmpl_id.is_published', '=', True),
             ('product_tmpl_id.sale_ok', '=', True),
-        ], order='product_tmpl_id asc, id asc', limit=limit, offset=offset)
-        # Sorted by the template's own name (not the variant's combination
-        # suffix), so "Part 1" / "Part 2" of the same book stay adjacent
-        # rather than being scattered by an alphabetical mix-up with
-        # "(Part: 1)" vs "(Part: 2)" suffixes.
-        return variants.sorted(key=lambda v: v.product_tmpl_id.name or '')
+        ]
+
+    def _get_category_variants(self, category, limit=None, offset=0):
+        """Sellable variants selected by a category's template/variant rules."""
+        variants = request.env['product.product'].sudo().search(
+            self._get_category_variant_domain(category),
+            order='product_tmpl_id asc, id asc',
+            limit=limit,
+            offset=offset,
+        )
+        # Keep variants from the same template adjacent rather than sorting
+        # on the combination suffix first.
+        return variants.sorted(key=lambda v: (v.product_tmpl_id.name or '', v.id))
 
     def _get_cart_quantity(self):
         order = request.website.sale_get_order()
@@ -174,24 +224,13 @@ class EasyOrderInterface(http.Controller):
         merely the first paginated page. This keeps the Popular row useful
         after product pagination was introduced.
         """
-        if category.include_subcategory_products:
-            subtree_ids = self._get_category_subtree_ids(category)
-            template_ids = (
-                request.env['easy.order.category'].sudo()
-                .browse(subtree_ids)
-                .mapped('product_tmpl_ids')
-                .ids
-            )
-        else:
-            template_ids = category.product_tmpl_ids.ids
-        if not template_ids:
+        variant_domain = self._get_category_variant_domain(category)
+        if variant_domain == [('id', '=', 0)]:
             return request.env['product.product']
 
         groups = request.env['sale.order.line'].sudo().read_group(
             domain=[
-                ('product_id.product_tmpl_id', 'in', template_ids),
-                ('product_id.product_tmpl_id.is_published', '=', True),
-                ('product_id.product_tmpl_id.sale_ok', '=', True),
+                ('product_id', 'in', request.env['product.product'].sudo().search(variant_domain).ids),
                 ('order_id.state', 'in', ['sale', 'done']),
             ],
             fields=['product_id', 'product_uom_qty:sum'],
@@ -294,7 +333,8 @@ class EasyOrderInterface(http.Controller):
         domain=[('product_tmpl_id.is_published','=',True),('product_tmpl_id.sale_ok','=',True)]
         if category_code:
             top=self._get_category_by_code_or_404(category_code)
-            if top: domain.append(('product_tmpl_id.easy_order_category_ids','in',self._get_category_subtree_ids(top)))
+            if top:
+                domain = self._get_category_variant_domain(top)
         catalog=Product.search(domain, limit=1000)
         out=[]
         for part in parts:
@@ -359,13 +399,10 @@ class EasyOrderInterface(http.Controller):
         PAGE_SIZE = 24
         variants = self._get_category_variants(category, limit=PAGE_SIZE)
         all_variant_count = None
-        # Count with the same template/category scope, without loading the full recordset.
-        if category.include_subcategory_products:
-            count_category_ids = self._get_category_subtree_ids(category)
-            count_template_ids = request.env['easy.order.category'].sudo().browse(count_category_ids).mapped('product_tmpl_ids').ids
-        else:
-            count_template_ids = category.product_tmpl_ids.ids
-        product_domain = [('product_tmpl_id', 'in', count_template_ids), ('product_tmpl_id.is_published', '=', True), ('product_tmpl_id.sale_ok', '=', True)]
+        # Count with exactly the same template/variant precedence rules as
+        # the product query, so pagination never advertises rows that cannot
+        # actually be displayed.
+        product_domain = self._get_category_variant_domain(category)
         all_variant_count = request.env['product.product'].sudo().search_count(product_domain)
         product_prices = {
             variant.id: self._get_invoiced_price(variant) for variant in variants
@@ -433,7 +470,7 @@ class EasyOrderInterface(http.Controller):
             return request.not_found()
         return self._render_category_page(category, code)
 
-    def _build_search_domain(self, query, category_subtree_ids):
+    def _build_search_domain(self, query, category_subtree_ids, category=None):
         """A fast, broad SQL ilike net cast BEFORE the precise Python
         scoring in easy_order_search — narrows "every product assigned
         anywhere in this section" down to "plausibly relevant ones"
@@ -464,12 +501,19 @@ class EasyOrderInterface(http.Controller):
                 ('product_tmpl_id.easy_order_category_ids.public_name', 'ilike', term),
             ])
 
-        return expression.AND([
-            [
+        if category:
+            base_domain = self._get_category_variant_domain(category)
+        else:
+            base_domain = [
                 ('product_tmpl_id.is_published', '=', True),
                 ('product_tmpl_id.sale_ok', '=', True),
+                '|',
                 ('product_tmpl_id.easy_order_category_ids', 'in', category_subtree_ids),
-            ],
+                ('easy_order_category_ids', 'in', category_subtree_ids),
+            ]
+
+        return expression.AND([
+            base_domain,
             expression.OR(term_domains),
         ])
 
@@ -546,7 +590,11 @@ class EasyOrderInterface(http.Controller):
         if not query_word_groups and max_price is None:
             return {'results': []}
 
-        domain = self._build_search_domain(query, subtree_ids)
+        domain = self._build_search_domain(query, subtree_ids, category=top if code else None)
+        # Category-scoped search already includes the exact category selection
+        # domain above, including template/variant precedence and attribute
+        # value filters. Global search remains intentionally broad because a
+        # product may be assigned to several unrelated categories.
         # Capped so one very common word (e.g. "book") can't drag this
         # whole section's catalog into the Python scoring stage on its
         # own — 300 is comfortably above what any real search needs,
@@ -556,9 +604,13 @@ class EasyOrderInterface(http.Controller):
 
         scored = []
         for variant in variants:
-            categories = variant.product_tmpl_id.easy_order_category_ids.filtered(
+            template_categories = variant.product_tmpl_id.easy_order_category_ids.filtered(
                 lambda c: c.id in subtree_ids
             )
+            variant_categories = variant.easy_order_category_ids.filtered(
+                lambda c: c.id in subtree_ids
+            )
+            categories = template_categories | variant_categories
             # Both fields — a search for "law books" (internal) and one
             # for "books" (the shared display name) should both be able
             # to find the same product.

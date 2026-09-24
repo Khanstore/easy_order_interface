@@ -53,7 +53,7 @@ Architecture notes
   storefront's navigation. Staff manage it under Sales > Easy Order >
   Categories.
 """,
-    'version': '18.0.4.3.0',
+    'version': '18.0.4.5.0',
     'category': 'Website/Website',
     'author': 'SM Ashraf',
     'support': 'shumontor@gmail.com',

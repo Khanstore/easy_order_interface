@@ -114,13 +114,55 @@ class EasyOrderCategory(models.Model):
              'makes those same products also show up there.',
     )
     product_tmpl_ids = fields.Many2many(
-        'product.template', string='Products',
+        'product.template', string='Product Templates',
         relation='easy_order_category_product_rel',
         column1='category_id', column2='product_tmpl_id',
-        help='The real catalog products that show up when a customer '
-             'browses this category. A product can be assigned to more '
-             'than one Easy Order category.',
+        help='Assign a product template when every variant of that '
+             'template should appear in this Easy Order category. If a '
+             'specific variant of the same template is also assigned in '
+             'Product Variants, the explicit variant selection takes '
+             'precedence for that template, just like an Odoo pricelist '
+             'item can target either a template or a specific variant.',
     )
+    product_variant_ids = fields.Many2many(
+        'product.product', string='Product Variants',
+        relation='easy_order_category_product_variant_rel',
+        column1='category_id', column2='product_variant_id',
+        help='Assign specific product variants when only those variants '
+             'should appear. A variant selection takes precedence over '
+             'its template selection; other templates continue to expand '
+             'to all their variants.',
+    )
+    product_attribute_value_ids = fields.Many2many(
+        'product.attribute.value', string='Variant Attribute Values',
+        relation='easy_order_category_product_attr_value_rel',
+        column1='category_id', column2='attribute_value_id',
+        help='Optionally narrow the selected products by variant attribute '
+             'values. For example, selecting Color: Black includes every '
+             'Black variant of the selected product templates, regardless '
+             'of size. Values from the same attribute are combined as OR; '
+             'different attributes are combined as AND. If a new matching '
+             'variant is created later, it is included automatically.',
+    )
+
+    available_product_attribute_value_ids = fields.Many2many(
+        'product.attribute.value',
+        compute='_compute_available_product_attribute_value_ids',
+        string='Available Variant Attribute Values',
+        help='Technical helper used to limit attribute values to the selected product templates.',
+    )
+
+    @api.depends('product_tmpl_ids')
+    def _compute_available_product_attribute_value_ids(self):
+        AttributeValue = self.env['product.attribute.value']
+        all_values = AttributeValue.search([])
+        for category in self:
+            if category.product_tmpl_ids:
+                category.available_product_attribute_value_ids = (
+                    category.product_tmpl_ids.mapped('attribute_line_ids.value_ids')
+                )
+            else:
+                category.available_product_attribute_value_ids = all_values
 
     @api.depends('name', 'parent_id.category_path')
     def _compute_category_path(self):

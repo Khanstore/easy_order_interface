@@ -270,3 +270,14 @@ Order Tracking rendering compatibility was fixed for Odoo 18.
 - Recognition now uses interim results and up to five alternatives, then selects the highest-confidence transcript.
 - Voice assistant keeps listening feedback and sends only the final transcript to the Odoo catalog matcher.
 - The selected language is remembered locally in the browser.
+
+
+## Variant selection by attribute value
+
+In an Easy Order category, Products supports three selection layers:
+
+- **Product Templates (all variants):** includes every variant of the selected template.
+- **Product Variants (specific only):** includes only the explicitly selected variants for a template.
+- **Variant Attribute Values:** filters the selected templates/variants by attribute values. For example, select a Shirt template and **Color: Black** to include Black/S, Black/M, Black/L, Black/XL, etc.
+
+Multiple values from the same attribute are treated as alternatives (Color: Black or Brown). Values from different attributes are combined as filters (Color: Black and Size: Large). The filter is resolved dynamically, so newly-created variants matching the selected values are included automatically.
