@@ -469,3 +469,9 @@ Order tracking timeline classes now use `t-att-class` instead of nested `t-attf-
 - Recognition now uses interim results and up to five alternatives, then selects the highest-confidence transcript.
 - Voice assistant keeps listening feedback and sends only the final transcript to the Odoo catalog matcher.
 - The selected language is remembered locally in the browser.
+
+## Product selection lines
+
+`easy.order.category.product.line` is the authoritative new product-selection model for categories. Each line has one `product.template` and optional many2many selections for variants, attributes, and attribute values. An empty variant selection means all variants of the template; a non-empty variant selection limits the line to those variants. Attribute values further filter the line dynamically.
+
+The previous flat category M2M fields remain as a backward-compatible fallback for categories created by earlier versions.

@@ -12,8 +12,10 @@
                 <field name="public_name"/>
                 <field name="category_path"/>
                 <field name="code"/>
+                <field name="product_line_ids" optional="hide"/>
                 <field name="product_tmpl_ids" widget="many2many_tags" optional="hide"/>
                 <field name="product_variant_ids" widget="many2many_tags" optional="hide"/>
+                <field name="product_attribute_ids" widget="many2many_tags" optional="hide"/>
                 <field name="product_attribute_value_ids" widget="many2many_tags" optional="hide"/>
             </list>
         </field>
@@ -30,6 +32,7 @@
                 <field name="code"/>
                 <field name="product_tmpl_ids"/>
                 <field name="product_variant_ids"/>
+                <field name="product_attribute_ids"/>
                 <field name="product_attribute_value_ids"/>
                 <filter name="top_level" string="Top-level only" domain="[('parent_id', '=', False)]"/>
                 <group expand="0" string="Group By">
@@ -65,28 +68,23 @@
                     <notebook>
                         <page string="Products">
                             <field name="include_subcategory_products"/>
-                            <group>
-                                <label for="product_tmpl_ids" string="Product Templates (all variants)"/>
-                                <field name="product_tmpl_ids" nolabel="1" widget="many2many_tags"/>
-                                <div class="text-muted">
-                                    Selecting a template includes all of its variants unless a specific variant
-                                    of that template is selected below.
-                                </div>
-                                <label for="product_variant_ids" string="Product Variants (specific only)"/>
-                                <field name="product_variant_ids" nolabel="1" widget="many2many_tags"
-                                       domain="[('product_tmpl_id', 'in', product_tmpl_ids)]"/>
-                                <div class="text-muted">
-                                    Only variants belonging to the selected product templates are available here.
-                                </div>
-                                <label for="product_attribute_value_ids" string="Variant Attribute Values (e.g. Color: Black)"/>
-                                <field name="available_product_attribute_value_ids" invisible="1"/>
-                                <field name="product_attribute_value_ids" nolabel="1" widget="many2many_tags"
-                                       domain="[('id', 'in', available_product_attribute_value_ids)]"/>
-                                <div class="text-muted">
-                                    Only attribute values used by the selected product templates are available here. Same attribute = OR (Black or Brown);
-                                    different attributes = AND (Black and Large). New matching variants are included automatically.
-                                </div>
-                            </group>
+                            <div class="text-muted mb-2">
+                                Each product line works like a pricelist rule: choose one Product Template. If Variants is empty, all variants of that template are included; if Variants are selected, only those variants are included. Attributes and Values can further filter the line.
+                            </div>
+                            <field name="product_line_ids" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle" optional="hide"/>
+                                    <field name="product_tmpl_id"/>
+                                    <field name="product_variant_ids" widget="many2many_tags"
+                                           domain="[('product_tmpl_id', '=', product_tmpl_id)]"/>
+                                    <field name="available_product_attribute_ids" column_invisible="1"/>
+                                    <field name="product_attribute_ids" widget="many2many_tags"
+                                           domain="[('id', 'in', available_product_attribute_ids)]"/>
+                                    <field name="available_product_attribute_value_ids" column_invisible="1"/>
+                                    <field name="product_attribute_value_ids" widget="many2many_tags"
+                                           domain="[('id', 'in', available_product_attribute_value_ids)]"/>
+                                </list>
+                            </field>
                         </page>
                         <page string="Subcategories" invisible="not child_ids">
                             <field name="child_ids">

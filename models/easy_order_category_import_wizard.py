@@ -53,6 +53,10 @@ class EasyOrderCategoryImportWizard(models.TransientModel):
             'name': real_category.name,
             'parent_id': parent.id if parent else False,
             'product_tmpl_ids': [(6, 0, templates.ids)],
+            'product_line_ids': [
+                (0, 0, {'product_tmpl_id': template.id})
+                for template in templates
+            ],
             # Left blank on purpose: create()'s auto-code-generation (see
             # easy_order_category.py) derives one from the name, only
             # for the top-level ones that actually need it.

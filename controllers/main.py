@@ -99,17 +99,19 @@ class EasyOrderInterface(http.Controller):
     def _get_category_variant_domain(self, category):
         """Return the effective product.variant domain for a category.
 
-        Easy Order supports three layers of selection:
+        Product selection is stored as product lines, one line per product
+        template. A line behaves like an Odoo pricelist item:
 
-        * a selected product template means ALL of that template's variants;
-        * a selected product variant means ONLY that variant for its template;
-        * selected variant attribute values filter the resulting variants.
+        * template + no explicit variants => all variants of that template;
+        * template + explicit variants => only those variants;
+        * selected attribute values further filter the variants in that line.
 
-        Attribute values behave like useful storefront filters: values from
-        the same attribute are OR-ed (Color=Black or Brown), while values
-        from different attributes are AND-ed (Color=Black AND Size=L).
-        The filter is resolved at read time, so newly-created matching
-        variants are included automatically.
+        Attribute values from the same attribute are OR-ed, while values
+        from different attributes are AND-ed. The rules are resolved at
+        read time, so newly-created matching variants are included.
+
+        The older flat M2M fields are retained as a backward-compatible
+        fallback for categories created by earlier versions of the module.
         """
         if category.include_subcategory_products:
             subtree_ids = self._get_category_subtree_ids(category)
@@ -117,6 +119,43 @@ class EasyOrderInterface(http.Controller):
         else:
             categories = category
 
+        lines = categories.mapped('product_line_ids')
+        if lines:
+            line_domains = []
+            for line in lines:
+                if not line.product_tmpl_id:
+                    continue
+
+                if line.product_variant_ids:
+                    domain = [('id', 'in', line.product_variant_ids.ids)]
+                else:
+                    domain = [('product_tmpl_id', '=', line.product_tmpl_id.id)]
+
+                if line.product_attribute_value_ids:
+                    values_by_attribute = {}
+                    for value in line.product_attribute_value_ids:
+                        values_by_attribute.setdefault(value.attribute_id.id, []).append(value.id)
+                    for value_ids in values_by_attribute.values():
+                        domain.append((
+                            'product_template_attribute_value_ids.product_attribute_value_id',
+                            'in', value_ids,
+                        ))
+
+                line_domains.append(domain)
+
+            if not line_domains:
+                return [('id', '=', 0)]
+
+            selection_domain = expression.OR(line_domains)
+            return expression.AND([
+                selection_domain,
+                [('product_tmpl_id.is_published', '=', True),
+                 ('product_tmpl_id.sale_ok', '=', True)],
+            ])
+
+        # Backward compatibility for categories created with the previous
+        # flat M2M design. Once product lines are used, the line rules above
+        # become the authoritative selection for that category.
         template_ids = categories.mapped('product_tmpl_ids').ids
         explicit_variant_ids = categories.mapped('product_variant_ids').ids
         attribute_value_ids = categories.mapped('product_attribute_value_ids').ids
@@ -124,8 +163,6 @@ class EasyOrderInterface(http.Controller):
         if not template_ids and not explicit_variant_ids:
             return [('id', '=', 0)]
 
-        # A template is expanded to all variants only when that template has
-        # no explicit variant assignment in this category scope.
         explicit_variants = request.env['product.product'].sudo().browse(explicit_variant_ids)
         overridden_template_ids = set(
             explicit_variants.mapped('product_tmpl_id').ids
@@ -143,15 +180,11 @@ class EasyOrderInterface(http.Controller):
         else:
             selection_domain = [('id', 'in', explicit_variant_ids)]
 
-        # Attribute filtering is applied AFTER template/variant selection.
-        # Group values by their attribute so Color=Black+Brown means either
-        # color, while Color=Black+Size=L requires both conditions.
         if attribute_value_ids:
             values = request.env['product.attribute.value'].sudo().browse(attribute_value_ids)
             values_by_attribute = {}
             for value in values:
                 values_by_attribute.setdefault(value.attribute_id.id, []).append(value.id)
-
             for value_ids in values_by_attribute.values():
                 selection_domain.append((
                     'product_template_attribute_value_ids.product_attribute_value_id',

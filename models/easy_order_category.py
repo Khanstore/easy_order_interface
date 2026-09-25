@@ -113,6 +113,13 @@ class EasyOrderCategory(models.Model):
              'products, checking this on "Books" (or on "Police") '
              'makes those same products also show up there.',
     )
+    product_line_ids = fields.One2many(
+        'easy.order.category.product.line', 'category_id',
+        string='Product Lines',
+        copy=True,
+        help='Product selection rules for this category. Each line has one product template and optional specific variants, attributes, and attribute values.',
+    )
+
     product_tmpl_ids = fields.Many2many(
         'product.template', string='Product Templates',
         relation='easy_order_category_product_rel',
@@ -133,16 +140,30 @@ class EasyOrderCategory(models.Model):
              'its template selection; other templates continue to expand '
              'to all their variants.',
     )
+    product_attribute_ids = fields.Many2many(
+        'product.attribute', string='Variant Attributes',
+        relation='easy_order_category_product_attribute_rel',
+        column1='category_id', column2='attribute_id',
+        help='Select which variant attributes are available for this '
+             'category. Only attributes used by the selected product '
+             'templates can be selected.',
+    )
     product_attribute_value_ids = fields.Many2many(
         'product.attribute.value', string='Variant Attribute Values',
         relation='easy_order_category_product_attr_value_rel',
         column1='category_id', column2='attribute_value_id',
-        help='Optionally narrow the selected products by variant attribute '
-             'values. For example, selecting Color: Black includes every '
-             'Black variant of the selected product templates, regardless '
-             'of size. Values from the same attribute are combined as OR; '
-             'different attributes are combined as AND. If a new matching '
-             'variant is created later, it is included automatically.',
+        help='Select values from the selected attributes. For example, '
+             'select Color and then Black and White. Values from the same '
+             'attribute are combined as OR; different attributes are '
+             'combined as AND. If a new matching variant is created later, '
+             'it is included automatically.',
+    )
+
+    available_product_attribute_ids = fields.Many2many(
+        'product.attribute',
+        compute='_compute_available_product_attribute_ids',
+        string='Available Variant Attributes',
+        help='Technical helper used to limit attributes to those used by the selected product templates.',
     )
 
     available_product_attribute_value_ids = fields.Many2many(
@@ -153,16 +174,31 @@ class EasyOrderCategory(models.Model):
     )
 
     @api.depends('product_tmpl_ids')
+    def _compute_available_product_attribute_ids(self):
+        Attribute = self.env['product.attribute']
+        all_attributes = Attribute.search([])
+        for category in self:
+            if category.product_tmpl_ids:
+                category.available_product_attribute_ids = (
+                    category.product_tmpl_ids.mapped('attribute_line_ids.attribute_id')
+                )
+            else:
+                category.available_product_attribute_ids = all_attributes
+
+    @api.depends('product_tmpl_ids', 'product_attribute_ids')
     def _compute_available_product_attribute_value_ids(self):
         AttributeValue = self.env['product.attribute.value']
         all_values = AttributeValue.search([])
         for category in self:
             if category.product_tmpl_ids:
-                category.available_product_attribute_value_ids = (
-                    category.product_tmpl_ids.mapped('attribute_line_ids.value_ids')
-                )
+                values = category.product_tmpl_ids.mapped('attribute_line_ids.value_ids')
             else:
-                category.available_product_attribute_value_ids = all_values
+                values = all_values
+            if category.product_attribute_ids:
+                values = values.filtered(
+                    lambda value: value.attribute_id in category.product_attribute_ids
+                )
+            category.available_product_attribute_value_ids = values
 
     @api.depends('name', 'parent_id.category_path')
     def _compute_category_path(self):
