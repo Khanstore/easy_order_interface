@@ -103,16 +103,10 @@ class EasyOrderCategory(models.Model):
     )
     include_subcategory_products = fields.Boolean(
         string='Show products from subcategories too',
-        default=False,
-        help='By default, this category\'s page only shows products '
-             'assigned directly to IT — not ones assigned to its '
-             'subcategories. Turn this on to also pull in every '
-             'product from every subcategory underneath this one '
-             '(and their subcategories, and so on). Example: if '
-             '"Guides" is nested under police/books and has its own '
-             'products, checking this on "Books" (or on "Police") '
-             'makes those same products also show up there.',
+        default=True,
+        help='Compatibility field retained from earlier versions. Parent categories now automatically include products from all child categories recursively.',
     )
+
     product_line_ids = fields.One2many(
         'easy.order.category.product.line', 'category_id',
         string='Product Lines',

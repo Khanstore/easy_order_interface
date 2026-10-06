@@ -131,10 +131,12 @@ publicWidget.registry.EasyOrderAddToCart = publicWidget.Widget.extend({
     // those buttons work without any extra wiring.
     selector: ".eo_page",
     events: {
-        "click .eo_add_btn": "_onAddToCartClick",
+        "click .eo_add_btn:not(.eo_checkout_continue)": "_onAddToCartClick",
     },
 
     async _onAddToCartClick(ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
         const button = ev.currentTarget;
         if (button.disabled) {
             return;
@@ -169,9 +171,16 @@ publicWidget.registry.EasyOrderAddToCart = publicWidget.Widget.extend({
             return;
         }
 
+        if (!result || typeof result !== "object") {
+            this._showError(button, originalLabel, "কার্টে যোগ করার সময় কোনো উত্তর পাওয়া যায়নি। আবার চেষ্টা করুন।");
+            return;
+        }
+
         button.textContent = "✓ যোগ হয়েছে";
         button.classList.add("eo_added");
-        this._updateCartBadge(result.cart_qty);
+        if (typeof result.cart_qty === "number") {
+            this._updateCartBadge(result.cart_qty);
+        }
         // Deliberately stays disabled and labeled "✓ Added" rather than
         // reverting back to "Add to Cart" after a delay — a confirmed,
         // permanent state is clearer than a button that changes back on
@@ -343,7 +352,7 @@ publicWidget.registry.EasyOrderSearch = publicWidget.Widget.extend({
             const button = document.createElement("button");
             button.type = "button";
             button.className = "eo_add_btn eo_add_btn_small";
-            button.textContent = "কার্টে যোগ করুন";
+            button.textContent = "এটা নেব";
             button.dataset.productId = item.template_id;
             button.dataset.variantId = item.variant_id;
             card.appendChild(button);
@@ -771,7 +780,6 @@ publicWidget.registry.EasyOrderVoiceSearch = publicWidget.Widget.extend({
         const recognition = eoConfigureRecognition(Recognition, language);
         let finalText = "";
         let lastInterim = "";
-        let mic = null;
         this._eo_voice_active = true;
         button.disabled = true;
         button.classList.add("eo_voice_listening");
@@ -781,7 +789,6 @@ publicWidget.registry.EasyOrderVoiceSearch = publicWidget.Widget.extend({
 
         const finish = () => {
             this._eo_voice_active = false;
-            eoStopMicResources(mic);
             button.disabled = false;
             button.classList.remove("eo_voice_listening");
             button.textContent = "🎤";
@@ -826,10 +833,12 @@ publicWidget.registry.EasyOrderVoiceSearch = publicWidget.Widget.extend({
         recognition.onend = finish;
 
         try {
-            mic = await eoPrepareEnhancedMic();
-            eoStartRecognition(recognition, mic.track);
+            // IMPORTANT: do not call getUserMedia() here. The Web Speech API
+            // owns its microphone pipeline. Requesting a second MediaStream
+            // can make Chromium's SpeechRecognition silently fail or end
+            // immediately on some systems.
+            recognition.start();
         } catch (error) {
-            eoStopMicResources(mic);
             this._eo_voice_active = false;
             button.disabled = false;
             button.classList.remove("eo_voice_listening");
@@ -1001,7 +1010,7 @@ publicWidget.registry.EasyOrderPagination = publicWidget.Widget.extend({
             const add = document.createElement("button");
             add.type = "button";
             add.className = "eo_add_btn";
-            add.textContent = "কার্টে যোগ করুন";
+            add.textContent = "এটা নেব";
             add.dataset.productId = item.template_id;
             add.dataset.variantId = item.variant_id;
             card.appendChild(add);
@@ -1047,7 +1056,7 @@ publicWidget.registry.EasyOrderFavoritesPage = publicWidget.Widget.extend({
                 fav.type = "button"; fav.className = "eo_favorite_btn"; fav.dataset.variantId = item.variant_id; fav.textContent = "♥";
                 fav.setAttribute("aria-label", "প্রিয় থেকে সরান"); card.appendChild(fav);
                 if (!item.out_of_stock) {
-                    const add = document.createElement("button"); add.type = "button"; add.className = "eo_add_btn eo_add_btn_small"; add.textContent = "কার্টে যোগ করুন";
+                    const add = document.createElement("button"); add.type = "button"; add.className = "eo_add_btn eo_add_btn_small"; add.textContent = "এটা নেব";
                     add.dataset.productId = item.template_id; add.dataset.variantId = item.variant_id; card.appendChild(add);
                 } else {
                     const label = document.createElement("span"); label.className = "eo_out_of_stock_label"; label.textContent = "স্টকে নেই"; card.appendChild(label);
@@ -1213,8 +1222,8 @@ publicWidget.registry.EasyOrderVoiceAssistant = publicWidget.Widget.extend({
         };
 
         try {
-            mic = await eoPrepareEnhancedMic();
-            eoStartRecognition(recognition, mic.track);
+            // Let SpeechRecognition own the microphone.
+            recognition.start();
         } catch (e) {
             eoStopMicResources(mic);
             this._eo_voice_active = false;
@@ -1233,7 +1242,7 @@ publicWidget.registry.EasyOrderVoiceAssistant = publicWidget.Widget.extend({
         const list=document.createElement("div"); list.className="eo_assistant_items";
         for(const item of items){ const row=document.createElement("div"); row.className="eo_assistant_item"; row.innerHTML=`<span>${item.name}</span><strong>× ${item.qty}</strong>`; list.appendChild(row); }
         resultEl.appendChild(list);
-        const add=document.createElement("button"); add.type="button"; add.className="eo_add_btn eo_assistant_confirm"; add.textContent="✓ সবগুলো কার্টে যোগ করুন";
+        const add=document.createElement("button"); add.type="button"; add.className="eo_add_btn eo_assistant_confirm"; add.textContent="✓ সবগুলো এটা নেব";
         add.addEventListener("click",async()=>{
             add.disabled=true; add.textContent="যোগ হচ্ছে…";
             for(const item of items){ if(!item.out_of_stock) await rpc("/easy-order/cart/add",{product_id:item.template_id,variant_id:item.variant_id,qty:item.qty}); }

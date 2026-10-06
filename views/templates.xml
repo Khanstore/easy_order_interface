@@ -152,7 +152,7 @@
                 </nav>
                 <a t-att-href="back_url" class="eo_back">← বিভাগে ফিরে যান</a>
                 <h1 class="eo_title" t-esc="category.public_name or category.name"/>
-                <p class="eo_subtitle">যা চান তাতে "কার্টে যোগ করুন" চাপুন।</p>
+                <p class="eo_subtitle">যা চান তাতে "এটা নেব" চাপুন।</p>
 
                 <t t-call="easy_order_interface.search_bar"/>
 
@@ -198,7 +198,7 @@
                                     class="eo_add_btn eo_add_btn_small"
                                     t-att-data-product-id="product.product_tmpl_id.id"
                                     t-att-data-variant-id="product.id"
-                                >কার্টে যোগ করুন</button>
+                                >এটা নেব</button>
                                 <span t-if="product_out_of_stock.get(product.id)" class="eo_out_of_stock_label">স্টকে নেই</span>
                             </div>
                         </t>
@@ -231,7 +231,7 @@
                                 class="eo_add_btn"
                                 t-att-data-product-id="product.product_tmpl_id.id"
                                 t-att-data-variant-id="product.id"
-                            >কার্টে যোগ করুন</button>
+                            >এটা নেব</button>
                             <span t-if="product_out_of_stock.get(product.id)" class="eo_out_of_stock_label">স্টকে নেই</span>
                         </div>
                     </t>
@@ -272,7 +272,7 @@
                     </t>
                     <div class="eo_checkout_total"><span>মোট</span><strong t-esc="order.amount_total" t-options="{'widget':'monetary','display_currency':order.currency_id}"/></div>
                 </div>
-                <a href="/shop/checkout" class="eo_add_btn eo_checkout_continue">ডেলিভারি ও পেমেন্টে যান →</a>
+                <a href="/shop/checkout" class="eo_checkout_continue eo_checkout_action">ডেলিভারি ও পেমেন্টে যান →</a>
             </div>
         </t>
     </template>

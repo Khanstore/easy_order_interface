@@ -113,11 +113,13 @@ class EasyOrderInterface(http.Controller):
         The older flat M2M fields are retained as a backward-compatible
         fallback for categories created by earlier versions of the module.
         """
-        if category.include_subcategory_products:
-            subtree_ids = self._get_category_subtree_ids(category)
-            categories = request.env['easy.order.category'].sudo().browse(subtree_ids)
-        else:
-            categories = category
+        # A parent category always inherits the product selections of all
+        # descendant categories.  This is intentional: when a category is
+        # placed under a parent, products already assigned to that child
+        # must immediately be available from the parent's page too.  This
+        # applies recursively to grandchildren as well.
+        subtree_ids = self._get_category_subtree_ids(category)
+        categories = request.env['easy.order.category'].sudo().browse(subtree_ids)
 
         lines = categories.mapped('product_line_ids')
         if lines:

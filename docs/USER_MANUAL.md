@@ -19,7 +19,7 @@ The experience is intentionally simple:
 2. Customer chooses a large category tile.
 3. Customer opens a subcategory if needed.
 4. Customer can search using English, Bengali, or common Romanized Bengali spellings.
-5. Customer taps **কার্টে যোগ করুন** to add one item.
+5. Customer taps **এটা নেব** to add one item.
 6. Customer opens the normal Odoo cart/checkout flow.
 7. If the customer cannot find something, they use **খুঁজে পাচ্ছেন না? আমাদের জানান কী চাই →** and describe what they want.
 
@@ -55,7 +55,7 @@ The search is intentionally forgiving. It should help a customer who remembers w
 
 ### Adding to cart
 
-The customer taps **কার্টে যোগ করুন**. The button changes to a completed state after the server confirms the item was added.
+The customer taps **এটা নেব**. The button changes to a completed state after the server confirms the item was added.
 
 The cart count is updated immediately on the page.
 
