@@ -53,7 +53,7 @@ Architecture notes
   storefront's navigation. Staff manage it under Sales > Easy Order >
   Categories.
 """,
-    'version': '18.0.5.1.0',
+    'version': '18.0.5.2.0',
     'category': 'Website/Website',
     'author': 'SM Ashraf',
     'support': 'shumontor@gmail.com',
@@ -63,7 +63,7 @@ Architecture notes
     ],
     'data': [
         'security/ir.model.access.csv',
-        'data/easy.order.category.csv',
+        # 'data/easy.order.category.csv',
         'views/templates.xml',
         'views/easy_order_request_views.xml',
         'views/easy_order_category_views.xml',
