@@ -131,7 +131,7 @@ publicWidget.registry.EasyOrderAddToCart = publicWidget.Widget.extend({
     // those buttons work without any extra wiring.
     selector: ".eo_page",
     events: {
-        "click .eo_add_btn:not(.eo_checkout_continue)": "_onAddToCartClick",
+        "click .eo_add_btn:not(.eo_checkout_continue):not(.eo_request_submit_btn)": "_onAddToCartClick",
     },
 
     async _onAddToCartClick(ev) {
