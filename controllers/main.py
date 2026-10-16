@@ -492,11 +492,19 @@ class EasyOrderInterface(http.Controller):
         return self._render_category_page(category, code)
 
     @http.route(
-        '/easy-order/<string:code>/shop/'
-        '<model("easy.order.category"):category>',
+        '/easy-order/<string:code>/shop/<int:category_id>',
         type='http', auth='public', website=True, sitemap=True,
     )
-    def easy_order_subcategory(self, code, category, **kwargs):
+    def easy_order_subcategory(self, code, category_id, **kwargs):
+        # Do NOT use Odoo's model converter here. The public visitor has no
+        # ACL read permission on easy.order.category (by design: staff manage
+        # these categories in the backend), so a <model(...)> converter can
+        # turn a perfectly valid public category URL into a 404 before this
+        # controller gets a chance to use sudo(). Resolve it explicitly.
+        category = request.env['easy.order.category'].sudo().browse(category_id)
+        if not category.exists():
+            return request.not_found()
+
         top = self._get_top_ancestor(category)
         if not top.code or top.code != code:
             # The code in the URL doesn't match this category's actual
